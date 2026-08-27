@@ -1,6 +1,6 @@
 const CONFIG = {
 
     SOCKET_SERVER:
-        "http://localhost:3000"
+        "https://concord-rn1j.onrender.com/"
 
 };
