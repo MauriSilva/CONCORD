@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>GameShare</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <main class="app">
+
+        <header class="header">
+
+            <h1>Concord</h1>
+
+            <p>
+                Odiamos o governo brasileiro.
+            </p>
+
+        </header>
+
+
+        <!-- ========================= -->
+        <!-- CRIAR SALA -->
+        <!-- ========================= -->
+
+        <section id="createSection" class="card">
+
+            <h2>Criar uma sala</h2>
+
+            <p>
+                Crie uma sala e envie o código para seu amigo.
+            </p>
+
+            <button id="createRoom">
+                Criar sala
+            </button>
+
+        </section>
+
+
+        <!-- ========================= -->
+        <!-- SALA CRIADA -->
+        <!-- ========================= -->
+
+        <section id="hostSection" class="card hidden">
+
+            <h2>Sua sala</h2>
+
+            <div class="room-code-container">
+
+                <span id="roomCodeDisplay">
+                    --------
+                </span>
+
+                <button id="copyRoomCode" class="secondary-button">
+                    Copiar
+                </button>
+
+            </div>
+
+            <p id="hostStatus">
+                🟡 Aguardando seu amigo...
+            </p>
+
+            <button id="shareScreen" class="hidden">
+                🎥 Compartilhar tela
+            </button>
+
+            <button id="stopSharing" class="danger-button hidden">
+                ⏹ Parar transmissão
+            </button>
+
+        </section>
+
+
+        <!-- ========================= -->
+        <!-- ENTRAR -->
+        <!-- ========================= -->
+
+        <section id="joinSection" class="card">
+
+            <h2>Entrar em uma sala</h2>
+
+            <input type="text" id="roomCode" placeholder="Digite o código" maxlength="8" autocomplete="off">
+
+            <button id="joinRoom">
+                Entrar na sala
+            </button>
+
+        </section>
+
+
+        <!-- ========================= -->
+        <!-- VIEWER -->
+        <!-- ========================= -->
+
+        <section id="viewerSection" class="viewer-section hidden">
+
+            <div class="viewer-header">
+
+                <h2>Transmissão</h2>
+
+                <span id="connectionStatus">
+                    🔴 Desconectado
+                </span>
+
+            </div>
+
+
+            <div class="stats">
+
+                <div>
+                    Resolução:
+                    <strong id="resolution">
+                        --
+                    </strong>
+                </div>
+
+                <div>
+                    FPS:
+                    <strong id="fps">
+                        --
+                    </strong>
+                </div>
+
+                <div>
+                    Bitrate:
+                    <strong id="bitrate">
+                        --
+                    </strong>
+                </div>
+
+            </div>
+
+
+            <div class="video-container">
+
+                <video id="remoteVideo" autoplay playsinline muted></video>
+
+                <div id="videoPlaceholder" class="video-placeholder">
+                    Aguardando transmissão...
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- ========================= -->
+        <!-- STATUS -->
+        <!-- ========================= -->
+
+        <p id="status"></p>
+
+    </main>
+
+
+    <script src="/socket.io/socket.io.js"></script>
+
+    <script src="config.js"></script>
+
+    <script src="app.js"></script>
+
+</body>
+
+</html>

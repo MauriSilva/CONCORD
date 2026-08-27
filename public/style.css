@@ -1,0 +1,295 @@
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+
+    min-height: 100vh;
+
+    font-family: Arial, sans-serif;
+
+    background: #111;
+
+    color: #fff;
+}
+
+.app {
+    width: 100%;
+    max-width: 700px;
+
+    margin: 0 auto;
+
+    padding: 50px 20px;
+}
+
+.header {
+    text-align: center;
+
+    margin-bottom: 35px;
+}
+
+.header h1 {
+    margin: 0;
+
+    font-size: 42px;
+}
+
+.header p {
+    color: #999;
+
+    margin-top: 10px;
+}
+
+.card {
+    background: #1c1c1c;
+
+    border-radius: 14px;
+
+    padding: 25px;
+
+    margin-bottom: 20px;
+
+    border: 1px solid #2a2a2a;
+}
+
+.card h2 {
+    margin-top: 0;
+}
+
+.card p {
+    color: #aaa;
+}
+
+button {
+    width: 100%;
+
+    padding: 13px 18px;
+
+    border: none;
+
+    border-radius: 8px;
+
+    background: #5865f2;
+
+    color: white;
+
+    font-size: 15px;
+
+    font-weight: bold;
+
+    cursor: pointer;
+
+    transition: 0.2s;
+}
+
+button:hover {
+    filter: brightness(1.15);
+}
+
+button:disabled {
+    opacity: 0.5;
+
+    cursor: not-allowed;
+}
+
+.secondary-button {
+    width: auto;
+
+    background: #333;
+
+    padding: 10px 15px;
+}
+
+.danger-button {
+    margin-top: 10px;
+
+    background: #d83b3b;
+}
+
+input {
+    width: 100%;
+
+    padding: 13px;
+
+    margin-bottom: 12px;
+
+    border-radius: 8px;
+
+    border: 1px solid #333;
+
+    background: #111;
+
+    color: white;
+
+    font-size: 16px;
+
+    text-align: center;
+
+    text-transform: uppercase;
+
+    outline: none;
+}
+
+input:focus {
+    border-color: #5865f2;
+}
+
+.hidden {
+    display: none !important;
+}
+
+
+/* ========================= */
+/* CÓDIGO DA SALA */
+/* ========================= */
+
+.room-code-container {
+    display: flex;
+
+    align-items: center;
+
+    gap: 10px;
+
+    background: #111;
+
+    padding: 15px;
+
+    border-radius: 10px;
+
+    margin: 20px 0;
+}
+
+#roomCodeDisplay {
+    flex: 1;
+
+    font-size: 24px;
+
+    font-weight: bold;
+
+    letter-spacing: 3px;
+
+    text-align: center;
+}
+
+
+/* ========================= */
+/* VIEWER */
+/* ========================= */
+
+.viewer-section {
+    margin-top: 25px;
+}
+
+.viewer-header {
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: center;
+
+    margin-bottom: 12px;
+}
+
+.viewer-header h2 {
+    margin: 0;
+}
+
+#connectionStatus {
+    font-size: 14px;
+
+    color: #aaa;
+}
+
+
+/* ========================= */
+/* STATS */
+/* ========================= */
+
+.stats {
+    display: flex;
+
+    gap: 10px;
+
+    margin-bottom: 12px;
+}
+
+.stats div {
+    flex: 1;
+
+    background: #1c1c1c;
+
+    border-radius: 8px;
+
+    padding: 10px;
+
+    text-align: center;
+
+    font-size: 13px;
+
+    color: #999;
+}
+
+.stats strong {
+    display: block;
+
+    color: white;
+
+    margin-top: 3px;
+}
+
+
+/* ========================= */
+/* VIDEO */
+/* ========================= */
+
+.video-container {
+    position: relative;
+
+    width: 100%;
+
+    background: #000;
+
+    border-radius: 12px;
+
+    overflow: hidden;
+
+    aspect-ratio: 16 / 9;
+}
+
+#remoteVideo {
+    width: 100%;
+
+    height: 100%;
+
+    object-fit: contain;
+
+    display: block;
+}
+
+.video-placeholder {
+    position: absolute;
+
+    inset: 0;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    color: #777;
+
+    font-size: 15px;
+
+    pointer-events: none;
+}
+
+
+#status {
+    text-align: center;
+
+    color: #888;
+
+    margin-top: 20px;
+}
