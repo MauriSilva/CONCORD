@@ -145,6 +145,32 @@ io.on("connection", (socket) => {
         }
     });
 
+    // ========================================
+    // WEBRTC ICE CANDIDATE
+    // ========================================
+
+    socket.on("webrtc-candidate", (candidate) => {
+
+        console.log("Candidate WebRTC recebida.");
+
+        for (const [roomCode, room] of rooms.entries()) {
+
+            if (room.host === socket.id) {
+
+                io.to(room.viewer).emit("webrtc-candidate", candidate);
+
+                break;
+            }
+
+            if (room.viewer === socket.id) {
+
+                io.to(room.host).emit("webrtc-candidate", candidate);
+
+                break;
+            }
+        }
+    });
+
     // Desconexão
     socket.on("disconnect", () => {
 

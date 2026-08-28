@@ -70,13 +70,51 @@ const bitrate =
 // CONFIGURAÇÃO WEBRTC
 // ========================================
 
-const peerConnection = new RTCPeerConnection({
-    iceServers: [
-        {
-            urls: "stun:stun.l.google.com:19302"
+let peerConnection = null;
+
+function createPeerConnection() {
+    const pc = new RTCPeerConnection({
+        iceServers: [
+            {
+                urls: "stun:stun.l.google.com:19302"
+            }
+        ]
+    });
+
+    pc.onicecandidate = (event) => {
+        if (event.candidate) {
+            socket.emit("webrtc-candidate", event.candidate);
         }
-    ]
-});
+    };
+
+    pc.onconnectionstatechange = () => {
+        console.log("Connection state:", pc.connectionState);
+    };
+
+    pc.ontrack = (event) => {
+        const stream = event.streams[0];
+
+        remoteVideo.srcObject = stream;
+        remoteVideo.load();
+        videoPlaceholder.classList.add("hidden");
+
+        connectionStatus.textContent = "🟢 Conectado";
+
+        remoteVideo.play().catch((error) => {
+            console.error("Erro ao iniciar vídeo:", error);
+        });
+
+        if (!statsInterval) {
+            statsInterval = setInterval(updateStats, 1000);
+        }
+    };
+
+    return pc;
+}
+
+if (!peerConnection) {
+    peerConnection = createPeerConnection();
+}
 
 let localStream = null;
 
@@ -234,24 +272,20 @@ shareScreenButton.addEventListener(
 
                 width: {
                     ideal: 1280,
-                    max: 1280
+                    max: 1920
                 },
 
                 height: {
                     ideal: 720,
-                    max: 720
+                    max: 1080
                 },
 
                 frameRate: {
                     ideal: 30,
-                    max: 30
+                    max: 60
                 }
 
             });
-
-
-            videoTrack.contentHint =
-                "motion";
 
 
             console.log(
@@ -283,32 +317,28 @@ shareScreenButton.addEventListener(
 
             if (videoSender) {
 
-                const parameters =
-                    videoSender.getParameters();
+    const parameters =
+        videoSender.getParameters();
+
+    if (!parameters.encodings) {
+        parameters.encodings = [{}];
+    }
+
+    parameters.encodings[0].maxFramerate = 60;
+
+    parameters.degradationPreference =
+        "balanced";
+
+    await videoSender.setParameters(
+        parameters
+    );
+}
 
 
-                if (!parameters.encodings) {
-
-                    parameters.encodings = [
-                        {}
-                    ];
-
-                }
-
-
-                parameters.encodings[0]
-                    .maxBitrate = 3_000_000;
-
-                parameters.encodings[0]
-                    .maxFramerate = 30;
-
-
-                await videoSender.setParameters(
-                    parameters
-                );
-
+            if (peerConnection.signalingState !== "stable") {
+                await peerConnection.close();
+                peerConnection = createPeerConnection();
             }
-
 
             const offer =
                 await peerConnection.createOffer();
@@ -382,21 +412,25 @@ function stopScreenSharing() {
     }
 
 
-    // Remover tracks antigas do WebRTC
+    if (peerConnection) {
 
-    peerConnection
-        .getSenders()
-        .forEach(sender => {
+        peerConnection
+            .getSenders()
+            .forEach(sender => {
 
-            if (sender.track) {
+                if (sender.track) {
 
-                peerConnection.removeTrack(
-                    sender
-                );
+                    peerConnection.removeTrack(
+                        sender
+                    );
 
-            }
+                }
 
-        });
+            });
+
+        peerConnection.close();
+        peerConnection = createPeerConnection();
+    }
 
 
     stopSharingButton.classList.add(
@@ -449,56 +483,24 @@ socket.on("webrtc-answer", async (answer) => {
 
 });
 
+socket.on("webrtc-candidate", async (candidate) => {
+    if (!peerConnection) {
+        peerConnection = createPeerConnection();
+    }
+
+    try {
+        await peerConnection.addIceCandidate(
+            new RTCIceCandidate(candidate)
+        );
+    } catch (error) {
+        console.error("Erro ao adicionar ICE candidate:", error);
+    }
+});
+
 
 // ========================================
 // RECEBER VÍDEO
 // ========================================
-
-peerConnection.addEventListener(
-    "track",
-    async (event) => {
-
-        console.log("Vídeo recebido!");
-
-        const stream = event.streams[0];
-
-        remoteVideo.srcObject = stream;
-        remoteVideo.load();
-        videoPlaceholder.classList.add("hidden");
-
-        connectionStatus.textContent =
-            "🟢 Conectado";
-        
-
-        try {
-
-            await remoteVideo.play();
-
-            console.log(
-                "Vídeo iniciado corretamente!"
-            );
-
-        } catch (error) {
-
-            console.error(
-                "Erro ao iniciar vídeo:",
-                error
-            );
-
-        }
-
-
-        if (!statsInterval) {
-
-            statsInterval = setInterval(
-                updateStats,
-                1000
-            );
-
-        }
-
-    }
-);
 
 
 // ========================================
@@ -528,6 +530,10 @@ socket.on("viewer-left", () => {
 // ========================================
 
 socket.on("connect", () => {
+
+    if (!peerConnection) {
+        peerConnection = createPeerConnection();
+    }
 
     console.log("Conectado ao servidor!");
 
