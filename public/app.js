@@ -95,6 +95,8 @@ function createPeerConnection() {
         const stream = event.streams[0];
 
         remoteVideo.srcObject = stream;
+        remoteVideo.muted = false;
+        remoteVideo.volume = 1;
         remoteVideo.load();
         videoPlaceholder.classList.add("hidden");
 
