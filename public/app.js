@@ -631,7 +631,7 @@ shareScreenButton.addEventListener(
                     TARGET_FRAME_RATE;
 
                 parameters.degradationPreference =
-                    "maintain-framerate";
+                    "maintain-resolution";
 
 
                 await videoSender.setParameters(
