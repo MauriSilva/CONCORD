@@ -307,7 +307,7 @@ async function applyStreamQuality(videoTrack) {
 
         frameRate: {
             ideal: TARGET_FRAME_RATE,
-            max: TARGET_FRAME_RATE
+            max: 60
         }
 
     });
