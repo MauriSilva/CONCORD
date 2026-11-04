@@ -3,10 +3,9 @@
 
 <head>
     <meta charset="UTF-8">
-
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>GameShare</title>
+    <title>Concord</title>
 
     <link rel="stylesheet" href="style.css">
 </head>
@@ -17,7 +16,7 @@
 
         <header class="header">
 
-            <h1>Concord</h1>
+            <h1>Concord v1.1</h1>
 
             <p>
                 Odiamos o governo brasileiro.
@@ -25,10 +24,7 @@
 
         </header>
 
-
-        <!-- ========================= -->
         <!-- CRIAR SALA -->
-        <!-- ========================= -->
 
         <section id="createSection" class="card">
 
@@ -44,10 +40,7 @@
 
         </section>
 
-
-        <!-- ========================= -->
         <!-- SALA CRIADA -->
-        <!-- ========================= -->
 
         <section id="hostSection" class="card hidden">
 
@@ -69,6 +62,32 @@
                 🟡 Aguardando seu amigo...
             </p>
 
+            <!-- QUALIDADE DA TRANSMISSÃO -->
+
+            <div class="quality-control">
+
+                <label for="streamQuality">
+                    Qualidade da transmissão
+                </label>
+
+                <select id="streamQuality">
+
+                    <option value="720p">
+                        720p — 1280 × 720
+                    </option>
+
+                    <option value="1080p" selected>
+                        1080p — 1920 × 1080
+                    </option>
+
+                </select>
+
+                <small>
+                    Resoluções maiores exigem mais da conexão.
+                </small>
+
+            </div>
+
             <button id="shareScreen" class="hidden">
                 🎥 Compartilhar tela
             </button>
@@ -79,16 +98,19 @@
 
         </section>
 
-
-        <!-- ========================= -->
         <!-- ENTRAR -->
-        <!-- ========================= -->
 
         <section id="joinSection" class="card">
 
             <h2>Entrar em uma sala</h2>
 
-            <input type="text" id="roomCode" placeholder="Digite o código" maxlength="8" autocomplete="off">
+            <input
+                type="text"
+                id="roomCode"
+                placeholder="Digite o código"
+                maxlength="8"
+                autocomplete="off"
+            >
 
             <button id="joinRoom">
                 Entrar na sala
@@ -96,10 +118,7 @@
 
         </section>
 
-
-        <!-- ========================= -->
         <!-- VIEWER -->
-        <!-- ========================= -->
 
         <section id="viewerSection" class="viewer-section hidden">
 
@@ -113,34 +132,26 @@
 
             </div>
 
-
             <div class="stats">
 
                 <div>
                     Resolução:
-                    <strong id="resolution">
-                        --
-                    </strong>
+                    <strong id="resolution">--</strong>
                 </div>
 
                 <div>
                     FPS:
-                    <strong id="fps">
-                        --
-                    </strong>
+                    <strong id="fps">--</strong>
                 </div>
 
                 <div>
                     Bitrate:
-                    <strong id="bitrate">
-                        --
-                    </strong>
+                    <strong id="bitrate">--</strong>
                 </div>
 
             </div>
 
-
-            <div class="video-container">
+            <div class="video-container" id="videoContainer">
 
                 <video id="remoteVideo" autoplay playsinline></video>
 
@@ -148,19 +159,25 @@
                     Aguardando transmissão...
                 </div>
 
+                <button
+                    id="fullscreenButton"
+                    class="fullscreen-button"
+                    type="button"
+                    aria-label="Entrar em tela cheia"
+                    title="Tela cheia"
+                >
+                    ⛶
+                </button>
+
             </div>
 
         </section>
 
-
-        <!-- ========================= -->
         <!-- STATUS -->
-        <!-- ========================= -->
 
         <p id="status"></p>
 
     </main>
-
 
     <script src="/socket.io/socket.io.js"></script>
 
@@ -169,5 +186,4 @@
     <script src="app.js"></script>
 
 </body>
-
 </html>
