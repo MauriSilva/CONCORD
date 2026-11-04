@@ -328,7 +328,7 @@ streamQualitySelect.addEventListener("change", async () => {
 
     const videoTrack =
         localStream.getVideoTracks()[0];
-
+        videoTrack.contentHint = "motion";
     if (!videoTrack) {
         return;
     }
@@ -620,7 +620,7 @@ shareScreenButton.addEventListener(
                 parameters.encodings[0].maxFramerate = 60;
 
                 parameters.degradationPreference =
-                    "balanced";
+                    "maintain-framerate";
 
 
                 await videoSender.setParameters(
