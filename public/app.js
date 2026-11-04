@@ -282,7 +282,7 @@ function getSelectedQuality() {
 
     return STREAM_QUALITIES[
         streamQualitySelect.value
-    ] || STREAM_QUALITIES["1080p"];
+    ] || STREAM_QUALITIES["720p"];
 
 }
 
@@ -304,8 +304,7 @@ async function applyStreamQuality(videoTrack) {
         },
 
         frameRate: {
-            ideal: 30,
-            max: 60
+            max: 30
         }
 
     });
@@ -617,10 +616,10 @@ shareScreenButton.addEventListener(
                 }
 
 
-                parameters.encodings[0].maxFramerate = 60;
+                parameters.encodings[0].maxFramerate = 30;
 
                 parameters.degradationPreference =
-                    "maintain-framerate";
+                    "maintain-resolution";
 
 
                 await videoSender.setParameters(
