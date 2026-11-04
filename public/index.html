@@ -19,7 +19,7 @@
             <h1>Concord v1.1</h1>
 
             <p id="container-frase">
-                
+
             </p>
 
         </header>
@@ -104,13 +104,7 @@
 
             <h2>Entrar em uma sala</h2>
 
-            <input
-                type="text"
-                id="roomCode"
-                placeholder="Digite o código"
-                maxlength="8"
-                autocomplete="off"
-            >
+            <input type="text" id="roomCode" placeholder="Digite o código" maxlength="8" autocomplete="off">
 
             <button id="joinRoom">
                 Entrar na sala
@@ -159,19 +153,20 @@
                     Aguardando transmissão...
                 </div>
 
-                <button
-                    id="fullscreenButton"
-                    class="fullscreen-button"
-                    type="button"
-                    aria-label="Entrar em tela cheia"
-                    title="Tela cheia"
-                >
+                <button id="fullscreenButton" class="fullscreen-button" type="button" aria-label="Entrar em tela cheia"
+                    title="Tela cheia">
                     ⛶
                 </button>
 
             </div>
 
         </section>
+
+        <!-- SAIR DA SALA -->
+
+        <button id="leaveRoom" class="danger-button hidden">
+            ↩ Sair da sala
+        </button>
 
         <!-- STATUS -->
 
@@ -186,4 +181,5 @@
     <script src="app.js"></script>
 
 </body>
+
 </html>

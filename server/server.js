@@ -1,3 +1,4 @@
+
 const express = require("express");
 const cors = require("cors");
 const http = require("http");
@@ -6,7 +7,9 @@ const path = require("path");
 
 const app = express();
 app.use(cors());
+
 const server = http.createServer(app);
+
 const io = new Server(server, {
     cors: {
         origin: "*",
@@ -25,7 +28,7 @@ const rooms = new Map();
 app.get("/health", (req, res) => {
     res.json({
         status: "ok",
-        service: "GameShare Server"
+        service: "Concord Server"
     });
 });
 
@@ -41,6 +44,48 @@ function generateRoomCode() {
     }
 
     return code;
+}
+
+// Remove um usuário da sala, seja por saída voluntária
+// ou por desconexão.
+function removeUserFromRoom(socket, disconnected = false) {
+
+    for (const [roomCode, room] of rooms.entries()) {
+
+        // O anfitrião saiu
+        if (room.host === socket.id) {
+
+            rooms.delete(roomCode);
+
+            if (!disconnected) {
+                socket.leave(roomCode);
+            }
+
+            if (room.viewer) {
+                io.to(room.viewer).emit("host-left");
+            }
+
+            console.log(`Sala ${roomCode} encerrada pelo anfitrião.`);
+
+            return;
+        }
+
+        // O participante saiu
+        if (room.viewer === socket.id) {
+
+            room.viewer = null;
+
+            if (!disconnected) {
+                socket.leave(roomCode);
+            }
+
+            io.to(room.host).emit("viewer-left");
+
+            console.log(`Viewer saiu da sala ${roomCode}.`);
+
+            return;
+        }
+    }
 }
 
 io.on("connection", (socket) => {
@@ -106,7 +151,17 @@ io.on("connection", (socket) => {
         io.to(room.host).emit("viewer-joined");
     });
 
-        // ========================================
+
+    // Sair voluntariamente da sala
+socket.on("leave-room", () => {
+
+    console.log(`Usuário ${socket.id} solicitou sair da sala.`);
+
+    removeUserFromRoom(socket);
+});
+
+
+    // ========================================
     // WEBRTC OFFER
     // ========================================
 
@@ -116,7 +171,7 @@ io.on("connection", (socket) => {
 
         for (const [roomCode, room] of rooms.entries()) {
 
-            if (room.host === socket.id) {
+            if (room.host === socket.id && room.viewer) {
 
                 io.to(room.viewer).emit("webrtc-offer", offer);
 
@@ -145,6 +200,7 @@ io.on("connection", (socket) => {
         }
     });
 
+
     // ========================================
     // WEBRTC ICE CANDIDATE
     // ========================================
@@ -155,7 +211,7 @@ io.on("connection", (socket) => {
 
         for (const [roomCode, room] of rooms.entries()) {
 
-            if (room.host === socket.id) {
+            if (room.host === socket.id && room.viewer) {
 
                 io.to(room.viewer).emit("webrtc-candidate", candidate);
 
@@ -171,27 +227,13 @@ io.on("connection", (socket) => {
         }
     });
 
+
     // Desconexão
     socket.on("disconnect", () => {
 
         console.log(`Usuário desconectado: ${socket.id}`);
 
-        for (const [roomCode, room] of rooms.entries()) {
-
-            if (room.host === socket.id) {
-
-                rooms.delete(roomCode);
-
-                console.log(`Sala ${roomCode} removida.`);
-
-            } else if (room.viewer === socket.id) {
-
-                room.viewer = null;
-
-                io.to(room.host).emit("viewer-left");
-
-            }
-        }
+        removeUserFromRoom(socket, true);
     });
 
 });

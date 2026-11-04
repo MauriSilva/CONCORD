@@ -74,6 +74,8 @@ const fps =
 const bitrate =
     document.getElementById("bitrate");
 
+const leaveRoomButton =
+    document.getElementById("leaveRoom");
 
 const frases = [
     "deixa eu compartilhar minha tela Discord AAA",
@@ -376,6 +378,8 @@ socket.on("room-created", (roomCode) => {
 
     roomCodeDisplay.textContent = roomCode;
 
+    leaveRoomButton.classList.remove("hidden");
+
     createSection.classList.add("hidden");
 
     joinSection.classList.add("hidden");
@@ -455,6 +459,8 @@ socket.on("room-joined", (roomCode) => {
 
     currentRoomCode = roomCode;
 
+    leaveRoomButton.classList.remove("hidden");
+
     joinSection.classList.add("hidden");
 
     createSection.classList.add("hidden");
@@ -463,6 +469,32 @@ socket.on("room-joined", (roomCode) => {
 
     connectionStatus.textContent =
         "🟡 Conectando...";
+
+});
+
+// ========================================
+// EVENTO SAIR DA SALA
+// ========================================
+
+leaveRoomButton.addEventListener("click", () => {
+
+    if (!currentRoomCode) {
+        return;
+    }
+    socket.emit("leave-room");
+
+    resetRoomInterface("Você saiu da sala.");
+
+});
+
+
+// ========================================
+// ANFITRIÃO ENCERROU A SALA
+// ========================================
+
+socket.on("host-left", () => {
+
+    resetRoomInterface("O host encerrou a sala.");
 
 });
 
@@ -720,6 +752,95 @@ function stopScreenSharing() {
 
 }
 
+// ========================================
+// SAIR DA SALA E VOLTAR AO MENU
+// ========================================
+
+function resetRoomInterface(message = "") {
+
+    console.log("Limpando sessão da sala...");
+
+    // Encerrar captura de tela e áudio
+    if (localStream) {
+
+        localStream
+            .getTracks()
+            .forEach(track => track.stop());
+
+        localStream = null;
+
+    }
+
+    // Encerrar conexão WebRTC
+    if (peerConnection) {
+
+        peerConnection.close();
+
+        peerConnection = createPeerConnection();
+
+    }
+
+    // Encerrar atualização das estatísticas
+    if (statsInterval) {
+
+        clearInterval(statsInterval);
+
+        statsInterval = null;
+
+    }
+
+    // Limpar player
+    remoteVideo.pause();
+    remoteVideo.srcObject = null;
+    remoteVideo.load();
+
+    videoPlaceholder.classList.remove("hidden");
+
+    // Limpar estatísticas
+    resolution.textContent = "--";
+    fps.textContent = "--";
+    bitrate.textContent = "--";
+
+    previousBytesReceived = 0;
+    previousTimestamp = 0;
+
+    // Limpar informações da sala
+    currentRoomCode = null;
+    isHost = false;
+
+    roomCodeDisplay.textContent = "--------";
+    roomCodeInput.value = "";
+
+    // Restaurar botões
+    shareScreenButton.classList.add("hidden");
+    stopSharingButton.classList.add("hidden");
+    leaveRoomButton.classList.add("hidden");
+
+    // Restaurar mensagens
+    hostStatus.textContent = "🟡 Aguardando seu amigo...";
+    connectionStatus.textContent = "🔴 Desconectado";
+
+    // Esconder as telas da sala
+    hostSection.classList.add("hidden");
+    viewerSection.classList.add("hidden");
+
+    // Mostrar menu inicial
+    createSection.classList.remove("hidden");
+    joinSection.classList.remove("hidden");
+
+    // Limpar status
+    status.textContent = message;
+
+    // Sair da tela cheia, caso esteja ativa
+    if (document.fullscreenElement === videoContainer) {
+
+        document.exitFullscreen().catch(error => {
+            console.error("Erro ao sair da tela cheia:", error);
+        });
+
+    }
+
+}
 
 // ========================================
 // RECEBER OFERTA
@@ -813,8 +934,8 @@ socket.on("room-error", (message) => {
 
 socket.on("viewer-left", () => {
 
-    status.textContent =
-        "Seu amigo saiu da sala.";
+    hostStatus.textContent =
+        "🟡 Seu amigo saiu da sala.";
 
 });
 
