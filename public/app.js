@@ -75,6 +75,33 @@ const bitrate =
     document.getElementById("bitrate");
 
 
+const frases = [
+    "deixa eu compartilhar minha tela Discord AAA",
+    "isso aqui ta funcionando?...",
+    "como você encontrou esse site?",
+    "devolve meu compartilhamento de tela Discord!",
+    "mano eu to ouvindo minha voz...",
+    "eu nem sei o que eu to fazendo",
+    "Discord caiu? problema de vocês.",
+    "funciona na minha máquina.",
+    "não encosta que tá funcionando.",
+    "1080p de pura gambiarra.",
+    "feito com ódio e JavaScript.",
+    "se fechar a aba perde tudo.",
+    "o importante é que abriu.",
+    "WebRTC, minha última esperança.",
+    "sem anúncios, sem Nitro, sem vergonha."
+];
+
+
+function mostrarFraseAoCarregar() {
+            const indiceAleatorio = Math.floor(Math.random() * frases.length);
+            
+            // Seleciona a div pelo ID e injeta o texto da frase sorteada
+            document.getElementById("container-frase").innerText = frases[indiceAleatorio];
+}
+
+window.onload = mostrarFraseAoCarregar;
 // ========================================
 // TELA CHEIA DO PLAYER
 // ========================================
