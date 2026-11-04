@@ -277,6 +277,8 @@ const STREAM_QUALITIES = {
 
 };
 
+const TARGET_FRAME_RATE = 30;
+
 
 function getSelectedQuality() {
 
@@ -304,7 +306,8 @@ async function applyStreamQuality(videoTrack) {
         },
 
         frameRate: {
-            max: 30
+            ideal: TARGET_FRAME_RATE,
+            max: TARGET_FRAME_RATE
         }
 
     });
@@ -327,10 +330,12 @@ streamQualitySelect.addEventListener("change", async () => {
 
     const videoTrack =
         localStream.getVideoTracks()[0];
-        videoTrack.contentHint = "motion";
+
     if (!videoTrack) {
         return;
     }
+
+    videoTrack.contentHint = "motion";
 
     try {
 
@@ -546,6 +551,12 @@ shareScreenButton.addEventListener(
             const videoTrack =
                 localStream.getVideoTracks()[0];
 
+            if (!videoTrack) {
+                throw new Error("A captura não retornou uma faixa de vídeo.");
+            }
+
+            videoTrack.contentHint = "motion";
+
 
             // Tenta aplicar a qualidade selecionada.
             // Se falhar, mantém a captura padrão.
@@ -616,10 +627,11 @@ shareScreenButton.addEventListener(
                 }
 
 
-                parameters.encodings[0].maxFramerate = 30;
+                parameters.encodings[0].maxFramerate =
+                    TARGET_FRAME_RATE;
 
                 parameters.degradationPreference =
-                    "maintain-resolution";
+                    "maintain-framerate";
 
 
                 await videoSender.setParameters(
