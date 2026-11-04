@@ -409,7 +409,7 @@ joinRoomButton.addEventListener("click", () => {
 
 
     status.textContent =
-        "Entrando na sala...";
+        "";
 
 
     socket.emit(
