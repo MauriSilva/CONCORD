@@ -17,7 +17,7 @@ const io = new Server(server, {
     }
 });
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 // Servir arquivos da pasta public
 app.use(express.static(path.join(__dirname, "../public")));
@@ -221,6 +221,26 @@ socket.on("leave-room", () => {
             if (room.viewer === socket.id) {
 
                 io.to(room.host).emit("webrtc-candidate", candidate);
+
+                break;
+            }
+        }
+    });
+
+
+    // ========================================
+    // COMPARTILHAMENTO DE TELA ENCERRADO
+    // ========================================
+
+    socket.on("screen-share-stopped", () => {
+
+        console.log("Compartilhamento de tela interrompido pelo host.");
+
+        for (const [roomCode, room] of rooms.entries()) {
+
+            if (room.host === socket.id && room.viewer) {
+
+                io.to(room.viewer).emit("screen-share-stopped");
 
                 break;
             }

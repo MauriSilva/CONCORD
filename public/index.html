@@ -89,6 +89,28 @@
 
             </div>
 
+            <!-- MODO DA TRANSMISSÃO -->
+
+            <div class="quality-control">
+
+                <label for="streamMode">
+                    Propósito da transmissão
+                </label>
+
+                <select id="streamMode">
+
+                    <option value="gaming" selected>
+                        🎮 Jogos (Priorizar fluidez equilibrada)
+                    </option>
+
+                    <option value="detail">
+                        📝 Geral / Leitura (Priorizar nitidez e resolução)
+                    </option>
+
+                </select>
+
+            </div>
+
             <button id="shareScreen" class="hidden">
                 🎥 Compartilhar tela
             </button>
@@ -175,7 +197,7 @@
 
     </main>
 
-    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 
     <script src="config.js"></script>
 

@@ -47,6 +47,9 @@ const stopSharingButton =
 const streamQualitySelect =
     document.getElementById("streamQuality");
 
+const streamModeSelect =
+    document.getElementById("streamMode");
+
 const viewerSection =
     document.getElementById("viewerSection");
 
@@ -97,10 +100,10 @@ const frases = [
 
 
 function mostrarFraseAoCarregar() {
-            const indiceAleatorio = Math.floor(Math.random() * frases.length);
-            
-            // Seleciona a div pelo ID e injeta o texto da frase sorteada
-            document.getElementById("container-frase").innerText = frases[indiceAleatorio];
+    const indiceAleatorio = Math.floor(Math.random() * frases.length);
+
+    // Seleciona a div pelo ID e injeta o texto da frase sorteada
+    document.getElementById("container-frase").innerText = frases[indiceAleatorio];
 }
 
 window.onload = mostrarFraseAoCarregar;
@@ -222,6 +225,9 @@ function createPeerConnection() {
         });
 
 
+        previousBytesReceived = 0;
+        previousTimestamp = 0;
+
         if (!statsInterval) {
 
             statsInterval = setInterval(
@@ -258,6 +264,26 @@ let previousBytesReceived = 0;
 
 let previousTimestamp = 0;
 
+let pendingIceCandidates = [];
+
+async function processPendingIceCandidates() {
+
+    if (!peerConnection || !peerConnection.remoteDescription || !peerConnection.remoteDescription.type) {
+        return;
+    }
+
+    while (pendingIceCandidates.length > 0) {
+        const candidate = pendingIceCandidates.shift();
+        try {
+            await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+            console.log("ICE candidate pendente aplicado com sucesso.");
+        } catch (error) {
+            console.warn("Erro ao aplicar ICE candidate pendente:", error);
+        }
+    }
+
+}
+
 
 // ========================================
 // QUALIDADE DA TRANSMISSÃO
@@ -279,6 +305,10 @@ const STREAM_QUALITIES = {
 
 const TARGET_FRAME_RATE = 30;
 
+const BITRATES = {
+    "720p": 3_500_000,
+    "1080p": 7_000_000
+};
 
 function getSelectedQuality() {
 
@@ -286,6 +316,61 @@ function getSelectedQuality() {
         streamQualitySelect.value
     ] || STREAM_QUALITIES["720p"];
 
+}
+
+// ========================================
+// PROPÓSITO / MODO DA TRANSMISSÃO
+// ========================================
+
+const STREAM_MODES = {
+    gaming: {
+        contentHint: "motion",
+        degradationPreference: "balanced"
+    },
+    detail: {
+        contentHint: "detail",
+        degradationPreference: "maintain-resolution"
+    }
+};
+
+function getSelectedMode() {
+    return STREAM_MODES[streamModeSelect?.value] || STREAM_MODES.gaming;
+}
+
+// ========================================
+// ATUALIZAR BITRATE E PARÂMETROS AO VIVO
+// ========================================
+
+async function updateSenderBitrate(pc, bitrateValue) {
+    if (!pc) return;
+    const videoSender = pc.getSenders().find(s => s.track?.kind === "video");
+    if (!videoSender) return;
+
+    try {
+        const parameters = videoSender.getParameters();
+        if (parameters.encodings && parameters.encodings.length > 0) {
+            parameters.encodings[0].maxBitrate = bitrateValue;
+            await videoSender.setParameters(parameters);
+            console.log(`Bitrate atualizado dinamicamente para ${(bitrateValue / 1_000_000).toFixed(1)} Mbps`);
+        }
+    } catch (err) {
+        console.warn("Não foi possível atualizar o bitrate dinamicamente:", err);
+    }
+}
+
+async function updateSenderMode(pc, mode) {
+    if (!pc) return;
+    const videoSender = pc.getSenders().find(s => s.track?.kind === "video");
+    if (!videoSender) return;
+
+    try {
+        const parameters = videoSender.getParameters();
+        parameters.degradationPreference = mode.degradationPreference;
+        await videoSender.setParameters(parameters);
+        console.log(`Modo de degradação atualizado para: ${mode.degradationPreference}`);
+    } catch (err) {
+        console.warn("Não foi possível atualizar o modo de degradação dinamicamente:", err);
+    }
 }
 
 
@@ -307,7 +392,7 @@ async function applyStreamQuality(videoTrack) {
 
         frameRate: {
             ideal: TARGET_FRAME_RATE,
-            max: 60
+            max: TARGET_FRAME_RATE
         }
 
     });
@@ -335,11 +420,13 @@ streamQualitySelect.addEventListener("change", async () => {
         return;
     }
 
-    videoTrack.contentHint = "motion";
-
     try {
 
         await applyStreamQuality(videoTrack);
+        await updateSenderBitrate(
+            peerConnection,
+            BITRATES[streamQualitySelect.value] || BITRATES["720p"]
+        );
 
         hostStatus.textContent =
             "🟢 Qualidade da transmissão atualizada!";
@@ -357,6 +444,35 @@ streamQualitySelect.addEventListener("change", async () => {
     }
 
 });
+
+
+// Alterar propósito da transmissão durante a transmissão
+
+if (streamModeSelect) {
+
+    streamModeSelect.addEventListener("change", async () => {
+
+        if (!localStream) {
+            return;
+        }
+
+        const videoTrack =
+            localStream.getVideoTracks()[0];
+
+        const mode = getSelectedMode();
+
+        if (videoTrack) {
+            videoTrack.contentHint = mode.contentHint;
+        }
+
+        await updateSenderMode(peerConnection, mode);
+
+        hostStatus.textContent =
+            "🟢 Modo de transmissão atualizado!";
+
+    });
+
+}
 
 
 // ========================================
@@ -527,6 +643,39 @@ socket.on("viewer-joined", () => {
 // COMPARTILHAR A TELA
 // ========================================
 
+function preferCodec(pc, mimeType) {
+
+    if (!pc) return;
+
+    const transceiver = pc.getTransceivers()
+        .find(t => t.sender.track?.kind === "video" || t.receiver.track?.kind === "video");
+
+    if (!transceiver || typeof transceiver.setCodecPreferences !== "function") {
+        return;
+    }
+
+    const capabilities =
+        (RTCRtpReceiver.getCapabilities || RTCRtpSender.getCapabilities)?.("video");
+
+    if (!capabilities?.codecs) {
+        return;
+    }
+
+    const target = mimeType.toLowerCase();
+    const preferred = capabilities.codecs.filter(c => c.mimeType.toLowerCase() === target);
+    const rest = capabilities.codecs.filter(c => c.mimeType.toLowerCase() !== target);
+
+    if (preferred.length > 0) {
+        try {
+            transceiver.setCodecPreferences([...preferred, ...rest]);
+            console.log(`Preferencia de codec configurada para: ${mimeType}`);
+        } catch (error) {
+            console.warn("Não foi possível aplicar preferências de codec:", error);
+        }
+    }
+
+}
+
 shareScreenButton.addEventListener(
     "click",
     async () => {
@@ -555,7 +704,8 @@ shareScreenButton.addEventListener(
                 throw new Error("A captura não retornou uma faixa de vídeo.");
             }
 
-            videoTrack.contentHint = "motion";
+            const mode = getSelectedMode();
+            videoTrack.contentHint = mode.contentHint;
 
 
             // Tenta aplicar a qualidade selecionada.
@@ -616,30 +766,72 @@ shareScreenButton.addEventListener(
 
             if (videoSender) {
 
-                const parameters =
-                    videoSender.getParameters();
+                try {
 
+                    const parameters = videoSender.getParameters();
 
-                if (!parameters.encodings) {
+                    if (parameters.encodings && parameters.encodings.length > 0) {
+                        parameters.encodings[0].maxFramerate = TARGET_FRAME_RATE;
+                        parameters.encodings[0].maxBitrate =
+                            BITRATES[streamQualitySelect.value] || BITRATES["720p"];
+                        parameters.encodings[0].networkPriority = "high";
+                        parameters.encodings[0].priority = "high";
+                    }
 
-                    parameters.encodings = [{}];
+                    parameters.degradationPreference = mode.degradationPreference;
+
+                    await videoSender.setParameters(parameters);
+                    console.log("Parâmetros de encoding configurados com sucesso:", parameters);
+
+                } catch (paramError) {
+
+                    console.warn(
+                        "Não foi possível aplicar parâmetros avançados de encoding:",
+                        paramError
+                    );
 
                 }
 
-
-                parameters.encodings[0].maxFramerate =
-                    TARGET_FRAME_RATE;
-
-                parameters.degradationPreference =
-                    "maintain-resolution";
+            }
 
 
-                await videoSender.setParameters(
-                    parameters
-                );
+            const audioSender =
+                peerConnection
+                    .getSenders()
+                    .find(
+                        sender =>
+                            sender.track?.kind === "audio"
+                    );
+
+            if (audioSender) {
+
+                try {
+
+                    const audioParameters = audioSender.getParameters();
+
+                    if (audioParameters.encodings && audioParameters.encodings.length > 0) {
+                        // Limitar áudio em 128 kbps para não competir com vídeo e priorizar estabilidade
+                        audioParameters.encodings[0].maxBitrate = 128_000;
+                        audioParameters.encodings[0].networkPriority = "high";
+                        audioParameters.encodings[0].priority = "high";
+                    }
+
+                    await audioSender.setParameters(audioParameters);
+                    console.log("Parâmetros de áudio configurados com sucesso:", audioParameters);
+
+                } catch (audioError) {
+
+                    console.warn(
+                        "Não foi possível aplicar parâmetros avançados de áudio:",
+                        audioError
+                    );
+
+                }
 
             }
 
+
+            preferCodec(peerConnection, "video/H264");
 
             const offer =
                 await peerConnection.createOffer();
@@ -747,6 +939,11 @@ function stopScreenSharing() {
 
     }
 
+    pendingIceCandidates = [];
+
+    // Notificar o viewer de que o compartilhamento foi encerrado
+    socket.emit("screen-share-stopped");
+
 
     stopSharingButton.classList.add(
         "hidden"
@@ -814,6 +1011,7 @@ function resetRoomInterface(message = "") {
 
     previousBytesReceived = 0;
     previousTimestamp = 0;
+    pendingIceCandidates = [];
 
     // Limpar informações da sala
     currentRoomCode = null;
@@ -854,6 +1052,45 @@ function resetRoomInterface(message = "") {
 }
 
 // ========================================
+// TRANSMISSÃO ENCERRADA PELO HOST
+// ========================================
+
+socket.on("screen-share-stopped", () => {
+
+    console.log("O host encerrou a transmissão.");
+
+    // Limpar player e voltar placeholder
+    remoteVideo.pause();
+    remoteVideo.srcObject = null;
+    remoteVideo.load();
+    videoPlaceholder.classList.remove("hidden");
+
+    // Limpar estatísticas e contadores
+    if (statsInterval) {
+        clearInterval(statsInterval);
+        statsInterval = null;
+    }
+
+    resolution.textContent = "--";
+    fps.textContent = "--";
+    bitrate.textContent = "--";
+
+    previousBytesReceived = 0;
+    previousTimestamp = 0;
+    pendingIceCandidates = [];
+
+    // Recriar peer connection para que esteja limpa para o próximo compartilhamento
+    if (peerConnection) {
+        peerConnection.close();
+        peerConnection = createPeerConnection();
+    }
+
+    connectionStatus.textContent = "🟡 Aguardando transmissão...";
+
+});
+
+
+// ========================================
 // RECEBER OFERTA
 // ========================================
 
@@ -861,25 +1098,36 @@ socket.on("webrtc-offer", async (offer) => {
 
     console.log("Oferta WebRTC recebida.");
 
+    if (!peerConnection) {
+        peerConnection = createPeerConnection();
+    }
 
-    await peerConnection.setRemoteDescription(
-        new RTCSessionDescription(offer)
-    );
+    try {
 
+        await peerConnection.setRemoteDescription(
+            new RTCSessionDescription(offer)
+        );
 
-    const answer =
-        await peerConnection.createAnswer();
+        // Processar candidatos ICE que chegaram antes da descrição remota
+        await processPendingIceCandidates();
 
+        const answer =
+            await peerConnection.createAnswer();
 
-    await peerConnection.setLocalDescription(
-        answer
-    );
+        await peerConnection.setLocalDescription(
+            answer
+        );
 
+        socket.emit(
+            "webrtc-answer",
+            answer
+        );
 
-    socket.emit(
-        "webrtc-answer",
-        answer
-    );
+    } catch (error) {
+
+        console.error("Erro ao processar oferta WebRTC:", error);
+
+    }
 
 });
 
@@ -892,23 +1140,40 @@ socket.on("webrtc-answer", async (answer) => {
 
     console.log("Resposta WebRTC recebida.");
 
+    try {
 
-    await peerConnection.setRemoteDescription(
-        new RTCSessionDescription(answer)
-    );
+        await peerConnection.setRemoteDescription(
+            new RTCSessionDescription(answer)
+        );
+
+        // Processar candidatos ICE que chegaram antes da resposta remota
+        await processPendingIceCandidates();
+
+    } catch (error) {
+
+        console.error("Erro ao aplicar resposta WebRTC:", error);
+
+    }
 
 });
 
 
+// ========================================
+// RECEBER ICE CANDIDATE
+// ========================================
+
 socket.on("webrtc-candidate", async (candidate) => {
 
     if (!peerConnection) {
-
-        peerConnection =
-            createPeerConnection();
-
+        peerConnection = createPeerConnection();
     }
 
+    // Se a descrição remota ainda não foi configurada, enfileira o candidato
+    if (!peerConnection.remoteDescription || !peerConnection.remoteDescription.type) {
+        console.log("ICE candidate recebido antes do remoteDescription. Enfileirando...");
+        pendingIceCandidates.push(candidate);
+        return;
+    }
 
     try {
 
