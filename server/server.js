@@ -1,4 +1,3 @@
-
 const express = require("express");
 const cors = require("cors");
 const http = require("http");
@@ -117,7 +116,12 @@ io.on("connection", (socket) => {
     // Entrar em sala
     socket.on("join-room", (roomCode) => {
 
-        roomCode = roomCode.toUpperCase().trim();
+        if (typeof roomCode !== "string") {
+            socket.emit("room-error", "Código de sala inválido.");
+            return;
+        }
+
+        roomCode = roomCode.toUpperCase().trim().slice(0, 8);
 
         const room = rooms.get(roomCode);
 

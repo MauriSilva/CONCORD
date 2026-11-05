@@ -1,4 +1,3 @@
-
 const socket = io(
     CONFIG.SOCKET_SERVER
 );
@@ -204,25 +203,33 @@ function createPeerConnection() {
 
         const stream = event.streams[0];
 
-        remoteVideo.srcObject = stream;
-        remoteVideo.muted = false;
-        remoteVideo.volume = 1;
-        remoteVideo.load();
+        // ontrack dispara uma vez por track (áudio e vídeo);
+        // só configura o player na primeira vez para esse stream.
+        if (remoteVideo.srcObject !== stream) {
+
+            remoteVideo.srcObject = stream;
+            remoteVideo.muted = false;
+            remoteVideo.volume = 1;
+
+            remoteVideo.play().catch((error) => {
+
+                if (error.name === "AbortError") {
+                    return;
+                }
+
+                console.error(
+                    "Erro ao iniciar vídeo:",
+                    error
+                );
+
+            });
+
+        }
 
         videoPlaceholder.classList.add("hidden");
 
         connectionStatus.textContent =
             "🟢 Conectado";
-
-
-        remoteVideo.play().catch((error) => {
-
-            console.error(
-                "Erro ao iniciar vídeo:",
-                error
-            );
-
-        });
 
 
         previousBytesReceived = 0;
@@ -655,7 +662,10 @@ function preferCodec(pc, mimeType) {
     }
 
     const capabilities =
-        (RTCRtpReceiver.getCapabilities || RTCRtpSender.getCapabilities)?.("video");
+        (RTCRtpSender.getCapabilities || RTCRtpReceiver.getCapabilities)?.call(
+            RTCRtpSender.getCapabilities ? RTCRtpSender : RTCRtpReceiver,
+            "video"
+        );
 
     if (!capabilities?.codecs) {
         return;
@@ -682,12 +692,31 @@ shareScreenButton.addEventListener(
 
         try {
 
+            const captureQuality = getSelectedQuality();
+
             localStream =
                 await navigator.mediaDevices.getDisplayMedia({
 
-                    video: true,
+                    video: {
 
-                    audio: true
+                        width: { ideal: captureQuality.width },
+
+                        height: { ideal: captureQuality.height },
+
+                        frameRate: {
+                            ideal: TARGET_FRAME_RATE,
+                            max: TARGET_FRAME_RATE
+                        }
+
+                    },
+
+                    // Evita que o navegador processe o áudio do sistema
+                    // como se fosse voz (o que deixa o som abafado).
+                    audio: {
+                        echoCancellation: false,
+                        noiseSuppression: false,
+                        autoGainControl: false
+                    }
 
                 });
 
@@ -842,10 +871,21 @@ shareScreenButton.addEventListener(
             );
 
 
+            // Reaplica o bitrate depois do setLocalDescription para
+            // garantir que o limite não foi descartado pelo navegador.
+            await updateSenderBitrate(
+                peerConnection,
+                BITRATES[streamQualitySelect.value] || BITRATES["720p"]
+            );
+
+
             socket.emit(
                 "webrtc-offer",
                 offer
             );
+
+
+            startHostStats();
 
 
             shareScreenButton.classList.add(
@@ -875,11 +915,89 @@ shareScreenButton.addEventListener(
                 error
             );
 
+            // Não deixa a captura de tela ligada se algo falhou.
+            if (localStream) {
+
+                localStream
+                    .getTracks()
+                    .forEach(track => track.stop());
+
+                localStream = null;
+
+            }
+
+            stopHostStats();
+
         }
 
     }
 
 );
+
+
+// ========================================
+// ESTATÍSTICAS DO HOST (DIAGNÓSTICO)
+// ========================================
+
+let hostStatsInterval = null;
+
+function startHostStats() {
+
+    stopHostStats();
+
+    hostStatsInterval = setInterval(async () => {
+
+        if (!peerConnection) {
+            return;
+        }
+
+        try {
+
+            const stats = await peerConnection.getStats();
+
+            stats.forEach(report => {
+
+                if (
+                    report.type === "outbound-rtp" &&
+                    report.kind === "video"
+                ) {
+
+                    console.log("[host-stats]", {
+                        fps: report.framesPerSecond,
+                        tamanho: `${report.frameWidth}x${report.frameHeight}`,
+                        limitadoPor: report.qualityLimitationReason,
+                        alvoMbps: report.targetBitrate
+                            ? (report.targetBitrate / 1e6).toFixed(2)
+                            : "--",
+                        encoder: report.encoderImplementation,
+                        codec: stats.get(report.codecId)?.mimeType
+                    });
+
+                }
+
+            });
+
+        } catch (error) {
+
+            console.warn("Falha ao ler estatísticas do host:", error);
+
+        }
+
+    }, 2000);
+
+}
+
+function stopHostStats() {
+
+    if (hostStatsInterval) {
+
+        clearInterval(hostStatsInterval);
+
+        hostStatsInterval = null;
+
+    }
+
+}
 
 
 // ========================================
@@ -897,6 +1015,8 @@ function stopScreenSharing() {
     console.log(
         "Encerrando compartilhamento..."
     );
+
+    stopHostStats();
 
 
     if (localStream) {
@@ -967,6 +1087,8 @@ function stopScreenSharing() {
 function resetRoomInterface(message = "") {
 
     console.log("Limpando sessão da sala...");
+
+    stopHostStats();
 
     // Encerrar captura de tela e áudio
     if (localStream) {
@@ -1209,6 +1331,16 @@ socket.on("room-error", (message) => {
 // ========================================
 
 socket.on("viewer-left", () => {
+
+    // Se o host estava transmitindo, encerra a transmissão e recria a
+    // conexão para que o próximo viewer comece com uma conexão limpa.
+    if (localStream) {
+
+        stopScreenSharing();
+
+    }
+
+    shareScreenButton.classList.add("hidden");
 
     hostStatus.textContent =
         "🟡 Seu amigo saiu da sala.";
