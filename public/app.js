@@ -243,7 +243,7 @@ function createPeerConnection() {
             );
 
         }
-
+        startViewerDiagnostics();
     };
 
 
@@ -332,7 +332,7 @@ function getSelectedQuality() {
 const STREAM_MODES = {
     gaming: {
         contentHint: "motion",
-        degradationPreference: "balanced"
+        degradationPreference: "maintain-framerate"
     },
     detail: {
         contentHint: "detail",
@@ -947,9 +947,7 @@ function startHostStats() {
 
     hostStatsInterval = setInterval(async () => {
 
-        if (!peerConnection) {
-            return;
-        }
+        if (!peerConnection) return;
 
         try {
 
@@ -963,14 +961,29 @@ function startHostStats() {
                 ) {
 
                     console.log("[host-stats]", {
+
                         fps: report.framesPerSecond,
+
                         tamanho: `${report.frameWidth}x${report.frameHeight}`,
+
                         limitadoPor: report.qualityLimitationReason,
+
                         alvoMbps: report.targetBitrate
                             ? (report.targetBitrate / 1e6).toFixed(2)
                             : "--",
+
+                        bitrateRealMbps: report.bytesSent
+                            ? (report.bytesSent / 1e6).toFixed(2)
+                            : "--",
+
+                        pacotesPerdidos: report.packetsLost,
+
+                        pacotesEnviados: report.packetsSent,
+
                         encoder: report.encoderImplementation,
+
                         codec: stats.get(report.codecId)?.mimeType
+
                     });
 
                 }
@@ -996,6 +1009,132 @@ function stopHostStats() {
         hostStatsInterval = null;
 
     }
+
+}
+
+// ========================================
+// DIAGNÓSTICO DO VIEWER (console)
+// ========================================
+
+let viewerDiagInterval = null;
+let viewerDiagPrev = null;
+let viewerRenderedFrames = 0;
+let viewerFrameCallbackId = null;
+
+function startViewerDiagnostics() {
+
+    stopViewerDiagnostics();
+
+    viewerRenderedFrames = 0;
+    viewerDiagPrev = null;
+
+    // Conta quadros realmente apresentados na tela
+    if ("requestVideoFrameCallback" in HTMLVideoElement.prototype) {
+
+        const onFrame = () => {
+            viewerRenderedFrames++;
+            viewerFrameCallbackId =
+                remoteVideo.requestVideoFrameCallback(onFrame);
+        };
+
+        viewerFrameCallbackId =
+            remoteVideo.requestVideoFrameCallback(onFrame);
+
+    }
+
+    viewerDiagInterval = setInterval(async () => {
+
+        if (!peerConnection) return;
+
+        try {
+
+            const stats = await peerConnection.getStats();
+
+            let v = null;
+
+            stats.forEach(report => {
+                if (report.type === "inbound-rtp" && report.kind === "video") {
+                    v = report;
+                }
+            });
+
+            if (!v) return;
+
+            const cur = {
+                t: performance.now(),
+                received: v.framesReceived || 0,
+                decoded: v.framesDecoded || 0,
+                dropped: v.framesDropped || 0,
+                rendered: viewerRenderedFrames,
+                decodeTime: v.totalDecodeTime || 0,
+                lost: v.packetsLost || 0,
+                nack: v.nackCount || 0,
+                pli: v.pliCount || 0,
+                jbDelay: v.jitterBufferDelay || 0,
+                jbCount: v.jitterBufferEmittedCount || 0
+            };
+
+            const prev = viewerDiagPrev;
+            viewerDiagPrev = cur;
+
+            if (!prev) return;
+
+            const dt = (cur.t - prev.t) / 1000;
+            const dDecoded = cur.decoded - prev.decoded;
+            const dJb = cur.jbCount - prev.jbCount;
+
+            const playback = remoteVideo.getVideoPlaybackQuality?.();
+
+            console.log("[viewer-diag]", {
+                recebidoFps: ((cur.received - prev.received) / dt).toFixed(1),
+                decodificadoFps: (dDecoded / dt).toFixed(1),
+                exibidoFps: ((cur.rendered - prev.rendered) / dt).toFixed(1),
+                descartadosNoPeriodo: cur.dropped - prev.dropped,
+                decodeMsPorQuadro: dDecoded > 0
+                    ? (((cur.decodeTime - prev.decodeTime) / dDecoded) * 1000).toFixed(1)
+                    : "--",
+                jitterBufferMs: dJb > 0
+                    ? (((cur.jbDelay - prev.jbDelay) / dJb) * 1000).toFixed(0)
+                    : "--",
+                pacotesPerdidos: cur.lost - prev.lost,
+                nack: cur.nack - prev.nack,
+                pli: cur.pli - prev.pli,
+                freezes: v.freezeCount,
+                droppedPlayback: playback?.droppedVideoFrames,
+                decoder: v.decoderImplementation,
+                hwDecoder: v.powerEfficientDecoder,
+                codec: stats.get(v.codecId)?.mimeType,
+                stream: `${v.frameWidth}x${v.frameHeight}`,
+                player: `${remoteVideo.clientWidth}x${remoteVideo.clientHeight}`,
+                dpr: window.devicePixelRatio
+            });
+
+        } catch (error) {
+
+            console.warn("Falha no diagnóstico do viewer:", error);
+
+        }
+
+    }, 1000);
+
+}
+
+function stopViewerDiagnostics() {
+
+    if (viewerDiagInterval) {
+        clearInterval(viewerDiagInterval);
+        viewerDiagInterval = null;
+    }
+
+    if (
+        viewerFrameCallbackId !== null &&
+        "cancelVideoFrameCallback" in HTMLVideoElement.prototype
+    ) {
+        remoteVideo.cancelVideoFrameCallback(viewerFrameCallbackId);
+    }
+
+    viewerFrameCallbackId = null;
+    viewerDiagPrev = null;
 
 }
 
@@ -1088,6 +1227,7 @@ function resetRoomInterface(message = "") {
 
     console.log("Limpando sessão da sala...");
 
+    stopViewerDiagnostics();
     stopHostStats();
 
     // Encerrar captura de tela e áudio
@@ -1179,6 +1319,7 @@ function resetRoomInterface(message = "") {
 
 socket.on("screen-share-stopped", () => {
 
+    stopViewerDiagnostics();
     console.log("O host encerrou a transmissão.");
 
     // Limpar player e voltar placeholder
