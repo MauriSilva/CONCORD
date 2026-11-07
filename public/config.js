@@ -1,7 +1,8 @@
 const CONFIG = {
 
     SOCKET_SERVER:
-        //"https://concord-rn1j.onrender.com/"
-        "http://localhost:3000/"
+        window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+            ? "http://localhost:3000/"
+            : "https://concord-rn1j.onrender.com/"
 
 };
