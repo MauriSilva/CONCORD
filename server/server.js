@@ -72,15 +72,18 @@ function removeUserFromRoom(socket, disconnected = false) {
         // O participante saiu
         if (room.viewer === socket.id) {
 
+            const leavingName = room.viewerName || "Seu amigo";
             room.viewer = null;
+            room.viewerName = null;
 
             if (!disconnected) {
                 socket.leave(roomCode);
             }
 
             io.to(room.host).emit("viewer-left");
+            io.to(room.host).emit("chat-system-message", `${leavingName} saiu da sala.`);
 
-            console.log(`Viewer saiu da sala ${roomCode}.`);
+            console.log(`Viewer ${leavingName} saiu da sala ${roomCode}.`);
 
             return;
         }
@@ -92,7 +95,7 @@ io.on("connection", (socket) => {
     console.log(`Usuário conectado: ${socket.id}`);
 
     // Criar sala
-    socket.on("create-room", () => {
+    socket.on("create-room", (data) => {
 
         let roomCode;
 
@@ -100,21 +103,40 @@ io.on("connection", (socket) => {
             roomCode = generateRoomCode();
         } while (rooms.has(roomCode));
 
+        const hostName = (data && typeof data === "object" && data.username)
+            ? String(data.username).trim().slice(0, 20)
+            : (typeof data === "string" ? data.trim().slice(0, 20) : "Host");
+
         rooms.set(roomCode, {
             host: socket.id,
-            viewer: null
+            hostName: hostName || "Host",
+            viewer: null,
+            viewerName: null
         });
 
         socket.join(roomCode);
 
-        console.log(`Sala criada: ${roomCode}`);
+        console.log(`${hostName} criou a sala: ${roomCode}`);
 
-        socket.emit("room-created", roomCode);
+        socket.emit("room-created", {
+            roomCode,
+            hostName: hostName || "Host"
+        });
     });
 
 
     // Entrar em sala
-    socket.on("join-room", (roomCode) => {
+    socket.on("join-room", (data) => {
+
+        let roomCode = "";
+        let viewerName = "Amigo";
+
+        if (typeof data === "string") {
+            roomCode = data;
+        } else if (data && typeof data === "object") {
+            roomCode = data.roomCode || "";
+            viewerName = data.username ? String(data.username).trim().slice(0, 20) : "Amigo";
+        }
 
         if (typeof roomCode !== "string") {
             socket.emit("room-error", "Código de sala inválido.");
@@ -144,15 +166,25 @@ io.on("connection", (socket) => {
         }
 
         room.viewer = socket.id;
+        room.viewerName = viewerName || "Amigo";
 
         socket.join(roomCode);
 
-        console.log(`Usuário ${socket.id} entrou na sala ${roomCode}`);
+        console.log(`Usuário ${room.viewerName} entrou na sala ${roomCode}`);
 
-        socket.emit("room-joined", roomCode);
+        socket.emit("room-joined", {
+            roomCode,
+            hostName: room.hostName,
+            viewerName: room.viewerName
+        });
 
-        // Avisar o host que alguém entrou
-        io.to(room.host).emit("viewer-joined");
+        // Avisar o host que alguém entrou, com o nome do viewer
+        io.to(room.host).emit("viewer-joined", {
+            viewerName: room.viewerName
+        });
+
+        // Notificar a sala no chat
+        io.to(roomCode).emit("chat-system-message", `${room.viewerName} entrou na sala.`);
     });
 
 
@@ -245,6 +277,49 @@ socket.on("leave-room", () => {
             if (room.host === socket.id && room.viewer) {
 
                 io.to(room.viewer).emit("screen-share-stopped");
+
+                break;
+            }
+        }
+    });
+
+
+    // ========================================
+    // CHAT DE TEXTO DA SALA
+    // ========================================
+
+    socket.on("send-chat-message", (messageText) => {
+
+        if (typeof messageText !== "string") {
+            return;
+        }
+
+        const cleanText = messageText.trim().slice(0, 300);
+
+        if (!cleanText) {
+            return;
+        }
+
+        // Localiza a sala à qual o socket pertence
+        for (const [roomCode, room] of rooms.entries()) {
+
+            if (room.host === socket.id || room.viewer === socket.id) {
+
+                const isHost = room.host === socket.id;
+                const senderName = isHost ? room.hostName : room.viewerName;
+
+                const time = new Date().toLocaleTimeString("pt-BR", {
+                    hour: "2-digit",
+                    minute: "2-digit"
+                });
+
+                io.to(roomCode).emit("chat-message", {
+                    senderId: socket.id,
+                    senderName: senderName || (isHost ? "Host" : "Amigo"),
+                    isHost,
+                    text: cleanText,
+                    time
+                });
 
                 break;
             }

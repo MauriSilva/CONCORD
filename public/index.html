@@ -16,7 +16,7 @@
 
         <header class="header">
 
-            <h1>Concord v1.2</h1>
+            <h1>Concord v1.3</h1>
 
             <p id="container-frase">
 
@@ -24,6 +24,30 @@
             <a class="updates-link" href="novidades.html">✦ O que há de novo?</a>
             <a class="updates-link" href="guia.html">❔ Como usar?</a>
         </header>
+
+        <!-- PERFIL DO USUÁRIO -->
+
+        <section id="profileSection" class="card profile-card">
+
+            <div class="profile-container">
+
+                <label for="usernameInput" class="profile-label">
+                    👤 Seu apelido:
+                </label>
+
+                <div class="profile-input-wrapper">
+
+                    <input type="text" id="usernameInput" placeholder="Como quer ser chamado?" maxlength="20" autocomplete="off">
+
+                    <span id="usernameSavedBadge" class="saved-badge hidden">
+                        ✓ Salvo
+                    </span>
+
+                </div>
+
+            </div>
+
+        </section>
 
         <!-- CRIAR SALA -->
 
@@ -74,7 +98,7 @@
                 <select id="streamQuality">
 
                     <option value="720p" selected>
-                        720p — 1280 × 720
+                        720p — 1280 × 720 (recomendado, mais estável)
                     </option>
 
                     <option value="1080p" >
@@ -85,7 +109,7 @@
 
                 <small>
                     Resoluções maiores exigem mais da conexão. A captura busca 30 FPS, mas o resultado pode variar conforme o dispositivo, navegador e conexão.
-                    Recomendamos NÃO compartilhar o audio do computador se você estiver em chamadas de voz, pois isso pode causar eco e ruídos. você vai ouvir sua voz de volta.
+                    Recomendamos NÃO compartilhar o audio do computador se você estiver em chamadas de voz, pois isso pode causar eco e ruídos. seu amigo escutará a voz dele duplicada.
                 </small>
 
             </div>
@@ -169,20 +193,56 @@
 
             </div>
 
-            <div class="video-container" id="videoContainer">
+            <div class="stream-layout" id="streamLayout">
 
-                <video id="remoteVideo" autoplay playsinline></video>
+                <div class="video-container" id="videoContainer">
 
-                <div id="videoPlaceholder" class="video-placeholder">
-                    Aguardando transmissão...
+                    <video id="remoteVideo" autoplay playsinline></video>
+
+                    <div id="videoPlaceholder" class="video-placeholder">
+                        Aguardando transmissão...
+                    </div>
+
+                    <button id="fullscreenButton" class="fullscreen-button" type="button" aria-label="Entrar em tela cheia"
+                        title="Tela cheia">
+                        ⛶
+                    </button>
+
                 </div>
 
-                <button id="fullscreenButton" class="fullscreen-button" type="button" aria-label="Entrar em tela cheia"
-                    title="Tela cheia">
-                    ⛶
-                </button>
+            </div>
+
+        </section>
+
+        <!-- CHAT DA SALA -->
+
+        <section id="chatSection" class="card chat-card hidden">
+
+            <div class="chat-header">
+
+                <div class="chat-title">
+                    💬 Chat da Sala
+                </div>
+
+                <span id="chatParticipants" class="chat-participants">
+                    Conectado
+                </span>
 
             </div>
+
+            <div id="chatMessages" class="chat-messages" role="log" aria-live="polite">
+                <!-- Mensagens do chat serão adicionadas dinamicamente -->
+            </div>
+
+            <form id="chatForm" class="chat-form">
+
+                <input type="text" id="chatInput" placeholder="Envie uma mensagem..." maxlength="300" autocomplete="off">
+
+                <button type="submit" id="chatSendButton" class="chat-send-btn">
+                    Enviar
+                </button>
+
+            </form>
 
         </section>
 

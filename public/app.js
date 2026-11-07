@@ -79,6 +79,35 @@ const bitrate =
 const leaveRoomButton =
     document.getElementById("leaveRoom");
 
+// Perfil de Usuário
+const profileSection =
+    document.getElementById("profileSection");
+
+const usernameInput =
+    document.getElementById("usernameInput");
+
+const usernameSavedBadge =
+    document.getElementById("usernameSavedBadge");
+
+// Chat da Sala
+const chatSection =
+    document.getElementById("chatSection");
+
+const chatMessages =
+    document.getElementById("chatMessages");
+
+const chatForm =
+    document.getElementById("chatForm");
+
+const chatInput =
+    document.getElementById("chatInput");
+
+const chatParticipants =
+    document.getElementById("chatParticipants");
+
+const streamLayout =
+    document.getElementById("streamLayout");
+
 const frases = [
     "deixa eu compartilhar minha tela Discord AAA",
     "isso aqui ta funcionando?...",
@@ -106,6 +135,126 @@ function mostrarFraseAoCarregar() {
 }
 
 window.onload = mostrarFraseAoCarregar;
+
+// ========================================
+// GERENCIAMENTO DO NOME DE USUÁRIO
+// ========================================
+
+const USERNAME_STORAGE_KEY = "concord_username";
+
+function getStoredUsername() {
+    let stored = localStorage.getItem(USERNAME_STORAGE_KEY);
+    if (!stored || !stored.trim()) {
+        stored = `*Digite seu nome aqui*`;
+        localStorage.setItem(USERNAME_STORAGE_KEY, stored);
+    }
+    return stored.trim();
+}
+
+let currentUsername = getStoredUsername();
+
+if (usernameInput) {
+    usernameInput.value = currentUsername;
+
+    let saveTimeout = null;
+    usernameInput.addEventListener("input", () => {
+        clearTimeout(saveTimeout);
+        saveTimeout = setTimeout(() => {
+            const val = usernameInput.value.trim().slice(0, 20);
+            if (val) {
+                currentUsername = val;
+                localStorage.setItem(USERNAME_STORAGE_KEY, val);
+
+                if (usernameSavedBadge) {
+                    usernameSavedBadge.classList.remove("hidden");
+                    setTimeout(() => {
+                        usernameSavedBadge.classList.add("hidden");
+                    }, 1500);
+                }
+            }
+        }, 300);
+    });
+}
+
+
+// ========================================
+// CHAT DA SALA (SOCKET.IO)
+// ========================================
+
+function appendChatMessage({ senderName, isMe, text, time, isSystem = false }) {
+    if (!chatMessages) return;
+
+    // Remover dica vazia se houver
+    const emptyHint = chatMessages.querySelector(".chat-empty-hint");
+    if (emptyHint) {
+        emptyHint.remove();
+    }
+
+    if (isSystem) {
+        const sysDiv = document.createElement("div");
+        sysDiv.className = "chat-msg chat-msg-system";
+        sysDiv.textContent = `🟡 ${text}`;
+        chatMessages.appendChild(sysDiv);
+    } else {
+        const msgDiv = document.createElement("div");
+        msgDiv.className = `chat-msg ${isMe ? "chat-msg-me" : "chat-msg-other"}`;
+
+        const headerDiv = document.createElement("div");
+        headerDiv.className = "chat-msg-header";
+
+        const authorSpan = document.createElement("span");
+        authorSpan.className = "chat-msg-author";
+        authorSpan.textContent = isMe ? "Você" : senderName;
+
+        const timeSpan = document.createElement("span");
+        timeSpan.className = "chat-msg-time";
+        timeSpan.textContent = time;
+
+        headerDiv.appendChild(authorSpan);
+        headerDiv.appendChild(timeSpan);
+
+        const textDiv = document.createElement("div");
+        textDiv.className = "chat-msg-text";
+        textDiv.textContent = text;
+
+        msgDiv.appendChild(headerDiv);
+        msgDiv.appendChild(textDiv);
+
+        chatMessages.appendChild(msgDiv);
+    }
+
+    // Rola automaticamente para a última mensagem
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+if (chatForm) {
+    chatForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const text = chatInput.value.trim();
+        if (!text) return;
+
+        socket.emit("send-chat-message", text);
+        chatInput.value = "";
+        chatInput.focus();
+    });
+}
+
+socket.on("chat-message", (data) => {
+    const isMe = data.senderId === socket.id;
+    appendChatMessage({
+        senderName: data.senderName,
+        isMe,
+        text: data.text,
+        time: data.time
+    });
+});
+
+socket.on("chat-system-message", (text) => {
+    appendChatMessage({
+        text,
+        isSystem: true
+    });
+});
 // ========================================
 // TELA CHEIA DO PLAYER
 // ========================================
@@ -488,7 +637,9 @@ if (streamModeSelect) {
 
 createRoomButton.addEventListener("click", () => {
 
-    socket.emit("create-room");
+    socket.emit("create-room", {
+        username: getStoredUsername()
+    });
 
 });
 
@@ -497,9 +648,13 @@ createRoomButton.addEventListener("click", () => {
 // SALA CRIADA
 // ========================================
 
-socket.on("room-created", (roomCode) => {
+socket.on("room-created", (data) => {
 
     isHost = true;
+
+    const roomCode = (typeof data === "object" && data.roomCode)
+        ? data.roomCode
+        : data;
 
     currentRoomCode = roomCode;
 
@@ -511,7 +666,24 @@ socket.on("room-created", (roomCode) => {
 
     joinSection.classList.add("hidden");
 
+    if (profileSection) {
+        profileSection.classList.add("hidden");
+    }
+
+    // Garante que o chat esteja fora do streamLayout quando for host
+    if (leaveRoomButton && chatSection && chatSection.parentNode !== leaveRoomButton.parentNode) {
+        leaveRoomButton.parentNode.insertBefore(chatSection, leaveRoomButton);
+    }
+
     hostSection.classList.remove("hidden");
+
+    if (chatSection) {
+        chatSection.classList.remove("hidden");
+        chatMessages.innerHTML = '<div class="chat-empty-hint">Nenhuma mensagem ainda. Diga oi!</div>';
+        if (chatParticipants) {
+            chatParticipants.textContent = "Aguardando amigo...";
+        }
+    }
 
     hostStatus.textContent =
         "🟡 Aguardando seu amigo...";
@@ -570,10 +742,10 @@ joinRoomButton.addEventListener("click", () => {
         "";
 
 
-    socket.emit(
-        "join-room",
-        roomCode
-    );
+    socket.emit("join-room", {
+        roomCode,
+        username: getStoredUsername()
+    });
 
 });
 
@@ -582,7 +754,11 @@ joinRoomButton.addEventListener("click", () => {
 // ENTROU NA SALA
 // ========================================
 
-socket.on("room-joined", (roomCode) => {
+socket.on("room-joined", (data) => {
+
+    const roomCode = (typeof data === "object" && data.roomCode)
+        ? data.roomCode
+        : data;
 
     currentRoomCode = roomCode;
 
@@ -592,7 +768,25 @@ socket.on("room-joined", (roomCode) => {
 
     createSection.classList.add("hidden");
 
+    if (profileSection) {
+        profileSection.classList.add("hidden");
+    }
+
     viewerSection.classList.remove("hidden");
+
+    // No viewer, coloca o chat ao lado do player na divisão 70/30
+    if (streamLayout && chatSection) {
+        streamLayout.appendChild(chatSection);
+    }
+
+    if (chatSection) {
+        chatSection.classList.remove("hidden");
+        chatMessages.innerHTML = '<div class="chat-empty-hint">Nenhuma mensagem ainda. Diga oi!</div>';
+        if (chatParticipants) {
+            const hostName = (typeof data === "object" && data.hostName) ? data.hostName : "Host";
+            chatParticipants.textContent = `Você & ${hostName}`;
+        }
+    }
 
     connectionStatus.textContent =
         "🟡 Conectando...";
@@ -630,14 +824,18 @@ socket.on("host-left", () => {
 // VIEWER ENTROU
 // ========================================
 
-socket.on("viewer-joined", () => {
+socket.on("viewer-joined", (data) => {
 
     console.log("Viewer conectado!");
 
+    const viewerName = (data && data.viewerName) ? data.viewerName : "Seu amigo";
 
     hostStatus.textContent =
-        "🟢 Seu amigo está conectado!";
+        `🟢 ${viewerName} está conectado!`;
 
+    if (chatParticipants) {
+        chatParticipants.textContent = `Você & ${viewerName}`;
+    }
 
     shareScreenButton.classList.remove(
         "hidden"
@@ -1295,9 +1493,27 @@ function resetRoomInterface(message = "") {
     hostSection.classList.add("hidden");
     viewerSection.classList.add("hidden");
 
+    // Limpar e esconder o chat da sala
+    if (leaveRoomButton && chatSection && chatSection.parentNode !== leaveRoomButton.parentNode) {
+        leaveRoomButton.parentNode.insertBefore(chatSection, leaveRoomButton);
+    }
+    if (chatSection) {
+        chatSection.classList.add("hidden");
+    }
+    if (chatMessages) {
+        chatMessages.innerHTML = "";
+    }
+    if (chatInput) {
+        chatInput.value = "";
+    }
+
     // Mostrar menu inicial
     createSection.classList.remove("hidden");
     joinSection.classList.remove("hidden");
+
+    if (profileSection) {
+        profileSection.classList.remove("hidden");
+    }
 
     // Limpar status
     status.textContent = message;
@@ -1482,6 +1698,10 @@ socket.on("viewer-left", () => {
     }
 
     shareScreenButton.classList.add("hidden");
+
+    if (chatParticipants) {
+        chatParticipants.textContent = "Aguardando amigo...";
+    }
 
     hostStatus.textContent =
         "🟡 Seu amigo saiu da sala.";

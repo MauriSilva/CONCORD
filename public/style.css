@@ -687,6 +687,268 @@ input:focus {
     color: #fff;
 }
 
+/* ========================= */
+/* PERFIL DO USUÁRIO */
+/* ========================= */
+
+.profile-card {
+    padding: 16px 20px;
+    margin-bottom: 20px;
+}
+
+.profile-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.profile-label {
+    font-size: 14px;
+    font-weight: bold;
+    color: #ddd;
+    white-space: nowrap;
+}
+
+.profile-input-wrapper {
+    position: relative;
+    flex: 1;
+}
+
+.profile-input-wrapper input {
+    margin: 0;
+    text-align: left;
+    padding: 10px 14px;
+    font-size: 14px;
+    text-transform: none;
+    border-radius: 8px;
+    background: #111;
+    border: 1px solid #333;
+}
+
+.saved-badge {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 12px;
+    color: #43b581;
+    font-weight: bold;
+    pointer-events: none;
+    transition: opacity 0.3s;
+}
+
+/* ========================= */
+/* CHAT DA SALA */
+/* ========================= */
+
+.chat-card {
+    margin-top: 20px;
+    padding: 20px;
+}
+
+.chat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #2a2a2a;
+    margin-bottom: 15px;
+}
+
+.chat-title {
+    font-size: 16px;
+    font-weight: bold;
+    color: #fff;
+}
+
+.chat-participants {
+    font-size: 12px;
+    color: #43b581;
+    background: rgba(67, 181, 129, 0.15);
+    padding: 3px 8px;
+    border-radius: 12px;
+}
+
+.chat-messages {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 260px;
+    min-height: 120px;
+    overflow-y: auto;
+    padding-right: 6px;
+    margin-bottom: 15px;
+}
+
+/* Scrollbar para o chat */
+.chat-messages::-webkit-scrollbar {
+    width: 6px;
+}
+
+.chat-messages::-webkit-scrollbar-track {
+    background: #111;
+    border-radius: 4px;
+}
+
+.chat-messages::-webkit-scrollbar-thumb {
+    background: #333;
+    border-radius: 4px;
+}
+
+.chat-messages::-webkit-scrollbar-thumb:hover {
+    background: #444;
+}
+
+.chat-msg {
+    display: flex;
+    flex-direction: column;
+    padding: 8px 12px;
+    border-radius: 8px;
+    max-width: 85%;
+    word-break: break-word;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.chat-msg-header {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.chat-msg-author {
+    font-weight: bold;
+    font-size: 13px;
+}
+
+.chat-msg-time {
+    font-size: 11px;
+    color: #888;
+}
+
+.chat-msg-text {
+    color: #eee;
+}
+
+/* Mensagens enviadas pelo próprio usuário */
+.chat-msg-me {
+    align-self: flex-end;
+    background: #25283d;
+    border-left: 3px solid #5865f2;
+}
+
+.chat-msg-me .chat-msg-author {
+    color: #9aa4ff;
+}
+
+/* Mensagens recebidas do amigo */
+.chat-msg-other {
+    align-self: flex-start;
+    background: #1e1e1e;
+    border-left: 3px solid #43b581;
+}
+
+.chat-msg-other .chat-msg-author {
+    color: #43b581;
+}
+
+/* Mensagens de sistema (ex: entrou/saiu) */
+.chat-msg-system {
+    align-self: center;
+    background: transparent;
+    color: #888;
+    font-size: 12px;
+    font-style: italic;
+    padding: 4px 8px;
+    text-align: center;
+}
+
+.chat-form {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.chat-form input {
+    flex: 1;
+    margin: 0;
+    text-align: left;
+    padding: 12px 14px;
+    font-size: 14px;
+    text-transform: none;
+}
+
+.chat-send-btn {
+    width: auto;
+    padding: 12px 20px;
+    font-size: 14px;
+    white-space: nowrap;
+}
+
+.chat-empty-hint {
+    text-align: center;
+    color: #666;
+    font-size: 13px;
+    margin: auto;
+    padding: 20px 0;
+}
+
+/* ========================= */
+/* LAYOUT TRANSMISSÃO + CHAT (70% / 30%) */
+/* ========================= */
+
+.stream-layout {
+    display: flex;
+    gap: 16px;
+    align-items: stretch;
+    width: 100%;
+}
+
+.stream-layout .video-container {
+    flex: 7;
+    width: 70%;
+    min-width: 0;
+    margin: 0;
+}
+
+.stream-layout .chat-card {
+    flex: 3;
+    width: 30%;
+    min-width: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: auto;
+    box-sizing: border-box;
+}
+
+.stream-layout .chat-card .chat-messages {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
+    overflow-y: auto;
+}
+
+@media (max-width: 850px) {
+    .stream-layout {
+        flex-direction: column;
+    }
+
+    .stream-layout .video-container {
+        flex: none;
+        width: 100%;
+    }
+
+    .stream-layout .chat-card {
+        flex: none;
+        width: 100%;
+        height: 380px;
+        margin-top: 15px;
+    }
+}
+
 @media (max-width: 520px) {
     .guide-card {
         padding: 19px;
