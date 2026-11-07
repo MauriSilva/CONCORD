@@ -25,6 +25,9 @@ const createSection =
 const hostSection =
     document.getElementById("hostSection");
 
+const hostLayout =
+    document.getElementById("hostLayout");
+
 const joinSection =
     document.getElementById("joinSection");
 
@@ -670,9 +673,11 @@ socket.on("room-created", (data) => {
         profileSection.classList.add("hidden");
     }
 
-    // Garante que o chat esteja fora do streamLayout quando for host
-    if (leaveRoomButton && chatSection && chatSection.parentNode !== leaveRoomButton.parentNode) {
-        leaveRoomButton.parentNode.insertBefore(chatSection, leaveRoomButton);
+    if (hostLayout) {
+        hostLayout.classList.remove("hidden");
+        if (chatSection) {
+            hostLayout.appendChild(chatSection);
+        }
     }
 
     hostSection.classList.remove("hidden");
@@ -1490,6 +1495,9 @@ function resetRoomInterface(message = "") {
     connectionStatus.textContent = "🔴 Desconectado";
 
     // Esconder as telas da sala
+    if (hostLayout) {
+        hostLayout.classList.add("hidden");
+    }
     hostSection.classList.add("hidden");
     viewerSection.classList.add("hidden");
 

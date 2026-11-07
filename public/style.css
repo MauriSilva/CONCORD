@@ -282,7 +282,8 @@ input:focus {
 
 /* Aumenta a largura da interface durante a visualização. */
 
-.app:has(.viewer-section:not(.hidden)) {
+.app:has(.viewer-section:not(.hidden)),
+.app:has(.host-layout:not(.hidden)) {
     max-width: 1400px;
 }
 
@@ -895,57 +896,106 @@ input:focus {
 }
 
 /* ========================= */
-/* LAYOUT TRANSMISSÃO + CHAT (70% / 30%) */
+/* LAYOUTS DA SALA (HOST & VIEWER + CHAT) */
 /* ========================= */
 
 .stream-layout {
-    display: flex;
+    display: grid;
+    grid-template-columns: 7fr 3fr;
     gap: 16px;
     align-items: stretch;
     width: 100%;
+    margin-top: 10px;
+}
+
+.host-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    gap: 16px;
+    align-items: stretch;
+    width: 100%;
+    margin-bottom: 20px;
 }
 
 .stream-layout .video-container {
-    flex: 7;
-    width: 70%;
+    width: 100%;
+    aspect-ratio: 16 / 9;
     min-width: 0;
+    min-height: 0;
     margin: 0;
+    align-self: start;
 }
 
-.stream-layout .chat-card {
-    flex: 3;
-    width: 30%;
+.host-layout #hostSection {
+    width: 100%;
+    margin: 0;
+    box-sizing: border-box;
+    align-self: start;
+}
+
+.stream-layout .chat-card,
+.host-layout .chat-card {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    max-height: 100%;
     min-width: 0;
     margin: 0;
+    padding: 16px;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
-    height: auto;
     box-sizing: border-box;
+    overflow: hidden;
 }
 
-.stream-layout .chat-card .chat-messages {
-    flex: 1;
+.stream-layout .chat-card .chat-header,
+.host-layout .chat-card .chat-header {
+    flex-shrink: 0;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+}
+
+.stream-layout .chat-card .chat-messages,
+.host-layout .chat-card .chat-messages {
+    flex: 1 1 0;
     min-height: 0;
     max-height: none;
     overflow-y: auto;
+    margin-bottom: 10px;
+    padding-right: 4px;
+}
+
+.stream-layout .chat-card .chat-form,
+.host-layout .chat-card .chat-form {
+    flex-shrink: 0;
+    margin-top: auto;
 }
 
 @media (max-width: 850px) {
     .stream-layout {
+        display: flex;
         flex-direction: column;
     }
 
     .stream-layout .video-container {
-        flex: none;
         width: 100%;
     }
 
-    .stream-layout .chat-card {
-        flex: none;
+    .host-layout {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .host-layout #hostSection {
+        width: 100%;
+    }
+
+    .stream-layout .chat-card,
+    .host-layout .chat-card {
         width: 100%;
         height: 380px;
-        margin-top: 15px;
+        max-height: 380px;
+        margin-top: 12px;
     }
 }
 

@@ -67,84 +67,88 @@
 
         <!-- SALA CRIADA -->
 
-        <section id="hostSection" class="card hidden">
+        <div id="hostLayout" class="host-layout hidden">
 
-            <h2>Sua sala</h2>
+            <section id="hostSection" class="card">
 
-            <div class="room-code-container">
+                <h2>Sua sala</h2>
 
-                <span id="roomCodeDisplay">
-                    --------
-                </span>
+                <div class="room-code-container">
 
-                <button id="copyRoomCode" class="secondary-button">
-                    Copiar
+                    <span id="roomCodeDisplay">
+                        --------
+                    </span>
+
+                    <button id="copyRoomCode" class="secondary-button">
+                        Copiar
+                    </button>
+
+                </div>
+
+                <p id="hostStatus">
+                    🟡 Aguardando seu amigo...
+                </p>
+
+                <!-- QUALIDADE DA TRANSMISSÃO -->
+
+                <div class="quality-control">
+
+                    <label for="streamQuality">
+                        Qualidade da transmissão
+                    </label>
+
+                    <select id="streamQuality">
+
+                        <option value="720p" selected>
+                            720p — 1280 × 720 (recomendado, mais estável)
+                        </option>
+
+                        <option value="1080p" >
+                            1080p — 1920 × 1080 (experimental, pode causar travamentos)
+                        </option>
+
+                    </select>
+
+                    <small>
+                        Resoluções maiores exigem mais da conexão. A captura busca 30 FPS, mas o resultado pode variar conforme o dispositivo, navegador e conexão.
+                        Recomendamos NÃO compartilhar o audio do computador se você estiver em chamadas de voz, pois isso pode causar eco e ruídos. seu amigo escutará a voz dele duplicada.
+                    </small>
+
+                </div>
+
+                <!-- MODO DA TRANSMISSÃO -->
+
+                <div class="quality-control">
+
+                    <label for="streamMode">
+                        Propósito da transmissão
+                    </label>
+
+                    <select id="streamMode">
+
+                        <option value="gaming" selected>
+                            🎮 Jogos (Prioriza fluidez; a resolução pode variar se a conexão cair)
+                        </option>
+
+                        <option value="detail">
+                            📝 Geral / Leitura (Mantém a resolução; o fps pode cair se a conexão cair)
+                        </option>
+
+                    </select>
+
+                </div>
+
+                <button id="shareScreen" class="hidden">
+                    🎥 Compartilhar tela
                 </button>
 
-            </div>
+                <button id="stopSharing" class="danger-button hidden">
+                    ⏹ Parar transmissão
+                </button>
 
-            <p id="hostStatus">
-                🟡 Aguardando seu amigo...
-            </p>
+            </section>
 
-            <!-- QUALIDADE DA TRANSMISSÃO -->
-
-            <div class="quality-control">
-
-                <label for="streamQuality">
-                    Qualidade da transmissão
-                </label>
-
-                <select id="streamQuality">
-
-                    <option value="720p" selected>
-                        720p — 1280 × 720 (recomendado, mais estável)
-                    </option>
-
-                    <option value="1080p" >
-                        1080p — 1920 × 1080 (experimental, pode causar travamentos)
-                    </option>
-
-                </select>
-
-                <small>
-                    Resoluções maiores exigem mais da conexão. A captura busca 30 FPS, mas o resultado pode variar conforme o dispositivo, navegador e conexão.
-                    Recomendamos NÃO compartilhar o audio do computador se você estiver em chamadas de voz, pois isso pode causar eco e ruídos. seu amigo escutará a voz dele duplicada.
-                </small>
-
-            </div>
-
-            <!-- MODO DA TRANSMISSÃO -->
-
-            <div class="quality-control">
-
-                <label for="streamMode">
-                    Propósito da transmissão
-                </label>
-
-                <select id="streamMode">
-
-                    <option value="gaming" selected>
-                        🎮 Jogos (Prioriza fluidez; a resolução pode variar se a conexão cair)
-                    </option>
-
-                    <option value="detail">
-                        📝 Geral / Leitura (Mantém a resolução; o fps pode cair se a conexão cair)
-                    </option>
-
-                </select>
-
-            </div>
-
-            <button id="shareScreen" class="hidden">
-                🎥 Compartilhar tela
-            </button>
-
-            <button id="stopSharing" class="danger-button hidden">
-                ⏹ Parar transmissão
-            </button>
-
-        </section>
+        </div>
 
         <!-- ENTRAR -->
 
