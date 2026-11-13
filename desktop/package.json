@@ -12,7 +12,7 @@
     "appId": "com.mauricioferraz.concord",
     "productName": "Concord",
     "publish": [
-    { "provider": "github", "owner": "MauriSilva", "repo": "https://github.com/MauriSilva/CONCORD" }
+    { "provider": "github", "owner": "MauriSilva", "repo": "CONCORD" }
   ],
     "directories": {
       "output": "dist"

@@ -148,11 +148,10 @@ function createWindow() {
 
 app.whenReady().then(() => {
     createWindow();
-
+    setupAutoUpdater();
     app.on("activate", () => {
         if (BrowserWindow.getAllWindows().length === 0) {
             createWindow();
-            setupAutoUpdater();
         }
     });
 });
