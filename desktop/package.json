@@ -1,6 +1,6 @@
 {
   "name": "concord-desktop",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Cliente Desktop do Concord",
   "author": "Mauricio Ferraz",
   "main": "main.js",
