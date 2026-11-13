@@ -1,3 +1,5 @@
+const { dialog } = require("electron");
+const { autoUpdater } = require("electron-updater");
 const { app, BrowserWindow, desktopCapturer, session, ipcMain } = require("electron");
 const path = require("path");
 const { execFile } = require("child_process");
@@ -39,6 +41,39 @@ function stopAudioCapture() {
         }
         loopbackInstance = null;
     }
+}
+
+function setupAutoUpdater() {
+    if (!app.isPackaged) return; // só atualiza o app instalado
+
+    autoUpdater.autoDownload = true;
+    autoUpdater.autoInstallOnAppQuit = true;
+
+    autoUpdater.on("error", (err) => {
+        console.warn("[Updater] Erro:", err == null ? "desconhecido" : err.message);
+    });
+
+    autoUpdater.on("update-available", (info) => {
+        console.log(`[Updater] Nova versão disponível: ${info.version}`);
+    });
+
+    autoUpdater.on("update-downloaded", async (info) => {
+        const { response } = await dialog.showMessageBox(mainWindow, {
+            type: "info",
+            buttons: ["Reiniciar agora", "Depois"],
+            defaultId: 0,
+            cancelId: 1,
+            title: "Atualização pronta",
+            message: `A versão ${info.version} do Concord foi baixada.`,
+            detail: "Reinicie o app para concluir a atualização."
+        });
+        if (response === 0) {
+            stopAudioCapture();
+            autoUpdater.quitAndInstall();
+        }
+    });
+
+    autoUpdater.checkForUpdates().catch(() => {});
 }
 
 function createWindow() {
@@ -117,6 +152,7 @@ app.whenReady().then(() => {
     app.on("activate", () => {
         if (BrowserWindow.getAllWindows().length === 0) {
             createWindow();
+            setupAutoUpdater();
         }
     });
 });

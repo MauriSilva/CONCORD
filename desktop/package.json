@@ -1,6 +1,6 @@
 {
   "name": "concord-desktop",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Cliente Desktop do Concord",
   "author": "Mauricio Ferraz",
   "main": "main.js",
@@ -11,25 +11,54 @@
   "build": {
     "appId": "com.mauricioferraz.concord",
     "productName": "Concord",
-    "directories": { "output": "dist" },
-    "files": ["main.js", "preload.js", "package.json"],
+    "publish": [
+    { "provider": "github", "owner": "MauriSilva", "repo": "https://github.com/MauriSilva/CONCORD" }
+  ],
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "package.json"
+    ],
     "extraResources": [
-      { "from": "../public", "to": "public" },
-      { "from": "get_pid.exe", "to": "get_pid.exe" },
-      { "from": "enum_windows.exe", "to": "enum_windows.exe" }
+      {
+        "from": "../public",
+        "to": "public"
+      },
+      {
+        "from": "get_pid.exe",
+        "to": "get_pid.exe"
+      },
+      {
+        "from": "enum_windows.exe",
+        "to": "enum_windows.exe"
+      }
     ],
     "win": {
-      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
       "icon": "build/icon.ico"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
+      "createStartMenuShortcut": true,
+      "artifactName": "Concord-Setup-${version}.exe"
     }
   },
-  "dependencies": { "loopback-capture": "^4.0.0" },
+  "dependencies": {
+    "electron-updater": "^6.8.11",
+    "loopback-capture": "^4.0.0"
+  },
   "devDependencies": {
     "electron": "^33.2.1",
     "electron-builder": "^26.18.0"
