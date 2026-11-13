@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>Concord</title>
+    <title>Concord v2.0</title>
 
     <link rel="stylesheet" href="style.css">
 </head>
@@ -16,17 +16,14 @@
 
         <header class="header">
 
-            <h1>Concord v1.3</h1>
+            <h1>Concord v2.0</h1>
 
-            <p id="container-frase">
-
-            </p>
+            <p id="container-frase"></p>
             <a class="updates-link" href="novidades.html">✦ O que há de novo?</a>
             <a class="updates-link" href="guia.html">❔ Como usar?</a>
         </header>
 
         <!-- PERFIL DO USUÁRIO -->
-
         <section id="profileSection" class="card profile-card">
 
             <div class="profile-container">
@@ -50,13 +47,12 @@
         </section>
 
         <!-- CRIAR SALA -->
-
         <section id="createSection" class="card">
 
             <h2>Criar uma sala</h2>
 
             <p>
-                Crie uma sala e envie o código para seu amigo.
+                Crie uma sala para até 5 pessoas e compartilhe o código com seus amigos.
             </p>
 
             <button id="createRoom">
@@ -65,93 +61,7 @@
 
         </section>
 
-        <!-- SALA CRIADA -->
-
-        <div id="hostLayout" class="host-layout hidden">
-
-            <section id="hostSection" class="card">
-
-                <h2>Sua sala</h2>
-
-                <div class="room-code-container">
-
-                    <span id="roomCodeDisplay">
-                        --------
-                    </span>
-
-                    <button id="copyRoomCode" class="secondary-button">
-                        Copiar
-                    </button>
-
-                </div>
-
-                <p id="hostStatus">
-                    🟡 Aguardando seu amigo...
-                </p>
-
-                <!-- QUALIDADE DA TRANSMISSÃO -->
-
-                <div class="quality-control">
-
-                    <label for="streamQuality">
-                        Qualidade da transmissão
-                    </label>
-
-                    <select id="streamQuality">
-
-                        <option value="720p" selected>
-                            720p — 1280 × 720 (recomendado, mais estável)
-                        </option>
-
-                        <option value="1080p" >
-                            1080p — 1920 × 1080 (experimental, pode causar travamentos)
-                        </option>
-
-                    </select>
-
-                    <small>
-                        Resoluções maiores exigem mais da conexão. A captura busca 30 FPS, mas o resultado pode variar conforme o dispositivo, navegador e conexão.
-                        Recomendamos NÃO compartilhar o audio do computador se você estiver em chamadas de voz, pois isso pode causar eco e ruídos. seu amigo escutará a voz dele duplicada.
-                    </small>
-
-                </div>
-
-                <!-- MODO DA TRANSMISSÃO -->
-
-                <div class="quality-control">
-
-                    <label for="streamMode">
-                        Propósito da transmissão
-                    </label>
-
-                    <select id="streamMode">
-
-                        <option value="gaming" selected>
-                            🎮 Jogos (Prioriza fluidez; a resolução pode variar se a conexão cair)
-                        </option>
-
-                        <option value="detail">
-                            📝 Geral / Leitura (Mantém a resolução; o fps pode cair se a conexão cair)
-                        </option>
-
-                    </select>
-
-                </div>
-
-                <button id="shareScreen" class="hidden">
-                    🎥 Compartilhar tela
-                </button>
-
-                <button id="stopSharing" class="danger-button hidden">
-                    ⏹ Parar transmissão
-                </button>
-
-            </section>
-
-        </div>
-
-        <!-- ENTRAR -->
-
+        <!-- ENTRAR EM UMA SALA -->
         <section id="joinSection" class="card">
 
             <h2>Entrar em uma sala</h2>
@@ -164,108 +74,154 @@
 
         </section>
 
-        <!-- VIEWER -->
+        <!-- SALA UNIFICADA (CONCORD 2.0) -->
+        <section id="roomSection" class="card room-card hidden">
 
-        <section id="viewerSection" class="viewer-section hidden">
+            <!-- CABEÇALHO DA SALA -->
+            <div class="room-topbar">
 
-            <div class="viewer-header">
-
-                <h2>Transmissão</h2>
-
-                <span id="connectionStatus">
-                    🔴 Desconectado
-                </span>
-
-            </div>
-
-            <div class="stats">
-
-                <div>
-                    Resolução:
-                    <strong id="resolution">--</strong>
+                <div class="room-code-pill">
+                    <span class="room-code-label">SALA:</span>
+                    <strong id="roomCodeDisplay">--------</strong>
+                    <button id="copyRoomCode" class="copy-pill-btn" type="button" title="Copiar código">
+                        Copiar
+                    </button>
                 </div>
 
-                <div>
-                    FPS:
-                    <strong id="fps">--</strong>
-                </div>
-
-                <div>
-                    Bitrate:
-                    <strong id="bitrate">--</strong>
+                <div class="room-badges">
+                    <span id="participantsBadge" class="badge badge-participants" title="Participantes na sala">
+                        👥 1/5
+                    </span>
+                    <span id="streamStatusBadge" class="badge badge-idle">
+                        ⚪ Ninguém transmitindo
+                    </span>
                 </div>
 
             </div>
 
+            <!-- LAYOUT PRINCIPAL: 70% PALCO / 30% CHAT -->
             <div class="stream-layout" id="streamLayout">
 
-                <div class="video-container" id="videoContainer">
+                <!-- COLUNA ESQUERDA: PALCO E CONTROLES -->
+                <div class="stage-column">
 
-                    <video id="remoteVideo" autoplay playsinline></video>
-
-                    <div id="videoPlaceholder" class="video-placeholder">
-                        Aguardando transmissão...
+                    <!-- BARRA DE ESTATÍSTICAS (QUANDO ASSISTINDO) -->
+                    <div id="statsBar" class="stats hidden">
+                        <div>
+                            Resolução: <strong id="resolution">--</strong>
+                        </div>
+                        <div>
+                            FPS: <strong id="fps">--</strong>
+                        </div>
+                        <div>
+                            Bitrate: <strong id="bitrate">--</strong>
+                        </div>
                     </div>
 
-                    <button id="fullscreenButton" class="fullscreen-button" type="button" aria-label="Entrar em tela cheia"
-                        title="Tela cheia">
-                        ⛶
-                    </button>
+                    <!-- PLAYER DE VÍDEO -->
+                    <div class="video-container" id="videoContainer">
+
+                        <video id="remoteVideo" autoplay playsinline></video>
+
+                        <div id="videoPlaceholder" class="video-placeholder">
+                            Aguardando transmissão...
+                        </div>
+
+                        <button id="fullscreenButton" class="fullscreen-button" type="button" aria-label="Entrar em tela cheia"
+                            title="Tela cheia">
+                            ⛶
+                        </button>
+
+                    </div>
+
+                    <!-- PAINEL DE CONTROLE DE TRANSMISSÃO -->
+                    <div id="streamControls" class="stream-controls">
+
+                        <div class="stream-controls-header">
+                            <span class="stream-controls-title">Transmissão de tela</span>
+                            <span id="streamRoleHint" class="stream-role-hint">Livre para transmitir</span>
+                        </div>
+
+                        <div class="stream-controls-grid">
+
+                            <div class="quality-control">
+                                <label for="streamQuality">Qualidade:</label>
+                                <select id="streamQuality">
+                                    <option value="720p" selected>720p — 1280 × 720 (estável)</option>
+                                    <option value="1080p">1080p — 1920 × 1080 (HD)</option>
+                                </select>
+                            </div>
+
+                            <div class="quality-control">
+                                <label for="streamMode">Propósito:</label>
+                                <select id="streamMode">
+                                    <option value="gaming" selected>🎮 Jogos (Prioriza FPS)</option>
+                                    <option value="detail">📝 Geral / Leitura (Prioriza nitidez)</option>
+                                </select>
+                            </div>
+
+                        </div>
+
+                        <div class="stream-actions">
+                            <button id="startStreamBtn" class="stream-btn">
+                                🎥 Iniciar transmissão
+                            </button>
+                            <button id="stopStreamBtn" class="danger-button hidden">
+                                ⏹ Parar transmissão
+                            </button>
+                        </div>
+
+                        <small id="streamHelpText" class="stream-help-text">
+                            Apenas 1 pessoa transmite por vez para até 4 amigos na sala. Evite compartilhar o áudio do computador se estiver em chamada de voz para prevenir eco.
+                        </small>
+
+                    </div>
+
+                </div>
+
+                <!-- COLUNA DIREITA: CHAT DA SALA -->
+                <div id="chatSection" class="chat-card">
+
+                    <div class="chat-header">
+                        <div class="chat-title">
+                            💬 Chat da Sala
+                        </div>
+                        <span id="chatParticipants" class="chat-participants">
+                            1 pessoa
+                        </span>
+                    </div>
+
+                    <div id="chatMessages" class="chat-messages" role="log" aria-live="polite">
+                        <!-- Mensagens adicionadas dinamicamente -->
+                    </div>
+
+                    <form id="chatForm" class="chat-form">
+                        <input type="text" id="chatInput" placeholder="Envie uma mensagem..." maxlength="300" autocomplete="off">
+                        <button type="submit" id="chatSendButton" class="chat-send-btn">
+                            Enviar
+                        </button>
+                    </form>
 
                 </div>
 
             </div>
 
-        </section>
-
-        <!-- CHAT DA SALA -->
-
-        <section id="chatSection" class="card chat-card hidden">
-
-            <div class="chat-header">
-
-                <div class="chat-title">
-                    💬 Chat da Sala
-                </div>
-
-                <span id="chatParticipants" class="chat-participants">
-                    Conectado
-                </span>
-
-            </div>
-
-            <div id="chatMessages" class="chat-messages" role="log" aria-live="polite">
-                <!-- Mensagens do chat serão adicionadas dinamicamente -->
-            </div>
-
-            <form id="chatForm" class="chat-form">
-
-                <input type="text" id="chatInput" placeholder="Envie uma mensagem..." maxlength="300" autocomplete="off">
-
-                <button type="submit" id="chatSendButton" class="chat-send-btn">
-                    Enviar
+            <!-- RODAPÉ DA SALA -->
+            <div class="room-footer">
+                <button id="leaveRoom" class="danger-button leave-room-btn">
+                    ↩ Sair da sala
                 </button>
-
-            </form>
+            </div>
 
         </section>
 
-        <!-- SAIR DA SALA -->
-
-        <button id="leaveRoom" class="danger-button hidden">
-            ↩ Sair da sala
-        </button>
-
-        <!-- STATUS -->
-
+        <!-- STATUS GERAL -->
         <p id="status"></p>
 
     </main>
 
     <script src="https://cdn.socket.io/4.8.3/socket.io.min.js"></script>
-
     <script src="config.js"></script>
-
     <script src="app.js"></script>
 
 </body>

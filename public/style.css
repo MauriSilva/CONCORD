@@ -16,6 +16,13 @@ body {
     max-width: 700px;
     margin: 0 auto;
     padding: 50px 20px;
+    transition: max-width 0.3s ease;
+}
+
+.app.in-room,
+.app:has(#roomSection:not(.hidden)) {
+    max-width: 1150px;
+    padding: 30px 20px;
 }
 
 .header {
@@ -896,25 +903,122 @@ input:focus {
 }
 
 /* ========================= */
-/* LAYOUTS DA SALA (HOST & VIEWER + CHAT) */
+/* SALA CONCORD 2.0 (UNIFICADA) */
 /* ========================= */
 
-.stream-layout {
-    display: grid;
-    grid-template-columns: 7fr 3fr;
-    gap: 16px;
-    align-items: stretch;
-    width: 100%;
-    margin-top: 10px;
+.room-card {
+    background: #181818;
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 20px;
+    border: 1px solid #2a2a2a;
 }
 
-.host-layout {
+.room-topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #2a2a2a;
+    margin-bottom: 16px;
+}
+
+.room-code-pill {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #111;
+    border: 1px solid #333;
+    padding: 8px 14px;
+    border-radius: 8px;
+}
+
+.room-code-label {
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    color: #888;
+    font-weight: bold;
+}
+
+#roomCodeDisplay {
+    font-size: 18px;
+    font-weight: bold;
+    letter-spacing: 2px;
+    color: #fff;
+    font-family: monospace;
+}
+
+.copy-pill-btn {
+    width: auto;
+    background: #2a2a2a;
+    color: #ddd;
+    padding: 6px 12px;
+    font-size: 12px;
+    border-radius: 6px;
+}
+
+.copy-pill-btn:hover {
+    background: #3a3a3a;
+    color: #fff;
+}
+
+.room-badges {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.badge-participants {
+    background: #23272a;
+    color: #99aab5;
+    border: 1px solid #36393f;
+}
+
+.badge-idle {
+    background: #202225;
+    color: #72767d;
+    border: 1px solid #2f3136;
+}
+
+.badge-live {
+    background: #2d1820;
+    color: #f04747;
+    border: 1px solid #f04747;
+}
+
+.badge-me {
+    background: #1e2e25;
+    color: #43b581;
+    border: 1px solid #43b581;
+}
+
+/* GRID 70% PALCO / 30% CHAT */
+.stream-layout {
     display: grid;
-    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 7fr) minmax(0, 3fr);
     gap: 16px;
     align-items: stretch;
     width: 100%;
-    margin-bottom: 20px;
+}
+
+.stage-column {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
 }
 
 .stream-layout .video-container {
@@ -923,18 +1027,79 @@ input:focus {
     min-width: 0;
     min-height: 0;
     margin: 0;
-    align-self: start;
 }
 
-.host-layout #hostSection {
-    width: 100%;
+.stream-controls {
+    background: #202225;
+    border-radius: 10px;
+    padding: 14px 16px;
+    border: 1px solid #2f3136;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.stream-controls-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.stream-controls-title {
+    font-size: 14px;
+    font-weight: bold;
+    color: #eee;
+}
+
+.stream-role-hint {
+    font-size: 12px;
+    color: #888;
+}
+
+.stream-controls-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.stream-controls-grid .quality-control {
     margin: 0;
-    box-sizing: border-box;
-    align-self: start;
+    gap: 6px;
 }
 
-.stream-layout .chat-card,
-.host-layout .chat-card {
+.stream-controls-grid .quality-control label {
+    font-size: 12px;
+    color: #aaa;
+}
+
+.stream-controls-grid .quality-control select {
+    padding: 8px 10px;
+    font-size: 13px;
+    background: #111;
+    color: #fff;
+    border: 1px solid #333;
+    border-radius: 6px;
+    outline: none;
+}
+
+.stream-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.stream-btn {
+    background: #5865f2;
+    padding: 11px 16px;
+    font-size: 14px;
+}
+
+.stream-help-text {
+    color: #72767d;
+    font-size: 11px;
+    line-height: 1.4;
+}
+
+.stream-layout .chat-card {
     width: 100%;
     height: 100%;
     min-height: 0;
@@ -946,17 +1111,19 @@ input:focus {
     flex-direction: column;
     box-sizing: border-box;
     overflow: hidden;
+    background: #202225;
+    border: 1px solid #2f3136;
+    border-radius: 10px;
 }
 
-.stream-layout .chat-card .chat-header,
-.host-layout .chat-card .chat-header {
+.stream-layout .chat-card .chat-header {
     flex-shrink: 0;
     margin-bottom: 10px;
     padding-bottom: 8px;
+    border-bottom: 1px solid #2f3136;
 }
 
-.stream-layout .chat-card .chat-messages,
-.host-layout .chat-card .chat-messages {
+.stream-layout .chat-card .chat-messages {
     flex: 1 1 0;
     min-height: 0;
     max-height: none;
@@ -965,10 +1132,25 @@ input:focus {
     padding-right: 4px;
 }
 
-.stream-layout .chat-card .chat-form,
-.host-layout .chat-card .chat-form {
+.stream-layout .chat-card .chat-form {
     flex-shrink: 0;
     margin-top: auto;
+}
+
+.room-footer {
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid #2a2a2a;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.leave-room-btn {
+    width: auto;
+    min-width: 150px;
+    margin: 0;
+    padding: 10px 18px;
+    font-size: 13px;
 }
 
 @media (max-width: 850px) {
@@ -981,17 +1163,11 @@ input:focus {
         width: 100%;
     }
 
-    .host-layout {
-        display: flex;
-        flex-direction: column;
+    .stream-controls-grid {
+        grid-template-columns: 1fr;
     }
 
-    .host-layout #hostSection {
-        width: 100%;
-    }
-
-    .stream-layout .chat-card,
-    .host-layout .chat-card {
+    .stream-layout .chat-card {
         width: 100%;
         height: 380px;
         max-height: 380px;

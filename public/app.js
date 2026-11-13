@@ -1,116 +1,62 @@
-const socket = io(
-    CONFIG.SOCKET_SERVER
-);
-
+const socket = io(CONFIG.SOCKET_SERVER);
 
 // ===============================
 // ELEMENTOS DA INTERFACE
 // ===============================
 
-const createRoomButton =
-    document.getElementById("createRoom");
+const createRoomButton = document.getElementById("createRoom");
+const joinRoomButton = document.getElementById("joinRoom");
+const roomCodeInput = document.getElementById("roomCode");
+const status = document.getElementById("status");
 
-const joinRoomButton =
-    document.getElementById("joinRoom");
+const createSection = document.getElementById("createSection");
+const joinSection = document.getElementById("joinSection");
+const roomSection = document.getElementById("roomSection");
+const appContainer = document.querySelector(".app");
 
-const roomCodeInput =
-    document.getElementById("roomCode");
+const roomCodeDisplay = document.getElementById("roomCodeDisplay");
+const copyRoomCodeButton = document.getElementById("copyRoomCode");
+const participantsBadge = document.getElementById("participantsBadge");
+const streamStatusBadge = document.getElementById("streamStatusBadge");
 
-const status =
-    document.getElementById("status");
+// Palco e Vídeo
+const statsBar = document.getElementById("statsBar");
+const resolution = document.getElementById("resolution");
+const fps = document.getElementById("fps");
+const bitrate = document.getElementById("bitrate");
 
-const createSection =
-    document.getElementById("createSection");
+const videoContainer = document.getElementById("videoContainer");
+const remoteVideo = document.getElementById("remoteVideo");
+const videoPlaceholder = document.getElementById("videoPlaceholder");
+const fullscreenButton = document.getElementById("fullscreenButton");
 
-const hostSection =
-    document.getElementById("hostSection");
+// Controles de Transmissão
+const streamControls = document.getElementById("streamControls");
+const streamRoleHint = document.getElementById("streamRoleHint");
+const streamQualitySelect = document.getElementById("streamQuality");
+const streamModeSelect = document.getElementById("streamMode");
+const startStreamBtn = document.getElementById("startStreamBtn");
+const stopStreamBtn = document.getElementById("stopStreamBtn");
+const streamHelpText = document.getElementById("streamHelpText");
 
-const hostLayout =
-    document.getElementById("hostLayout");
+// Chat
+const chatSection = document.getElementById("chatSection");
+const chatParticipants = document.getElementById("chatParticipants");
+const chatMessages = document.getElementById("chatMessages");
+const chatForm = document.getElementById("chatForm");
+const chatInput = document.getElementById("chatInput");
 
-const joinSection =
-    document.getElementById("joinSection");
+// Sair da sala
+const leaveRoomButton = document.getElementById("leaveRoom");
 
-const roomCodeDisplay =
-    document.getElementById("roomCodeDisplay");
+// Perfil do Usuário
+const profileSection = document.getElementById("profileSection");
+const usernameInput = document.getElementById("usernameInput");
+const usernameSavedBadge = document.getElementById("usernameSavedBadge");
 
-const copyRoomCodeButton =
-    document.getElementById("copyRoomCode");
-
-const hostStatus =
-    document.getElementById("hostStatus");
-
-const shareScreenButton =
-    document.getElementById("shareScreen");
-
-const stopSharingButton =
-    document.getElementById("stopSharing");
-
-const streamQualitySelect =
-    document.getElementById("streamQuality");
-
-const streamModeSelect =
-    document.getElementById("streamMode");
-
-const viewerSection =
-    document.getElementById("viewerSection");
-
-const connectionStatus =
-    document.getElementById("connectionStatus");
-
-const remoteVideo =
-    document.getElementById("remoteVideo");
-
-const videoContainer =
-    document.getElementById("videoContainer");
-
-const fullscreenButton =
-    document.getElementById("fullscreenButton");
-
-const videoPlaceholder =
-    document.getElementById("videoPlaceholder");
-
-const resolution =
-    document.getElementById("resolution");
-
-const fps =
-    document.getElementById("fps");
-
-const bitrate =
-    document.getElementById("bitrate");
-
-const leaveRoomButton =
-    document.getElementById("leaveRoom");
-
-// Perfil de Usuário
-const profileSection =
-    document.getElementById("profileSection");
-
-const usernameInput =
-    document.getElementById("usernameInput");
-
-const usernameSavedBadge =
-    document.getElementById("usernameSavedBadge");
-
-// Chat da Sala
-const chatSection =
-    document.getElementById("chatSection");
-
-const chatMessages =
-    document.getElementById("chatMessages");
-
-const chatForm =
-    document.getElementById("chatForm");
-
-const chatInput =
-    document.getElementById("chatInput");
-
-const chatParticipants =
-    document.getElementById("chatParticipants");
-
-const streamLayout =
-    document.getElementById("streamLayout");
-
+// ===============================
+// FRASES DE BOAS-VINDAS
+// ===============================
 const frases = [
     "deixa eu compartilhar minha tela Discord AAA",
     "isso aqui ta funcionando?...",
@@ -129,26 +75,24 @@ const frases = [
     "sem anúncios, sem Nitro, sem vergonha."
 ];
 
-
 function mostrarFraseAoCarregar() {
-    const indiceAleatorio = Math.floor(Math.random() * frases.length);
-
-    // Seleciona a div pelo ID e injeta o texto da frase sorteada
-    document.getElementById("container-frase").innerText = frases[indiceAleatorio];
+    const container = document.getElementById("container-frase");
+    if (container) {
+        const indiceAleatorio = Math.floor(Math.random() * frases.length);
+        container.innerText = frases[indiceAleatorio];
+    }
 }
-
 window.onload = mostrarFraseAoCarregar;
 
 // ========================================
 // GERENCIAMENTO DO NOME DE USUÁRIO
 // ========================================
-
 const USERNAME_STORAGE_KEY = "concord_username";
 
 function getStoredUsername() {
     let stored = localStorage.getItem(USERNAME_STORAGE_KEY);
     if (!stored || !stored.trim()) {
-        stored = `*Digite seu nome aqui*`;
+        stored = "Participante";
         localStorage.setItem(USERNAME_STORAGE_KEY, stored);
     }
     return stored.trim();
@@ -179,15 +123,121 @@ if (usernameInput) {
     });
 }
 
+// ========================================
+// ESTADO DA SALA E DO WEBRTC
+// ========================================
+let currentRoomCode = null;
+let myId = null;
+let roomParticipants = []; // [{ id, name }]
+let currentStreamerId = null;
+let isBroadcasting = false;
+
+// Estado de Transmissão (quando este usuário está transmitindo)
+let localStream = null;
+const peerConnections = new Map(); // viewerId -> RTCPeerConnection
+const pendingCandidatesMap = new Map(); // viewerId -> Array<candidate>
+
+// Estado de Visualização (quando este usuário está assistindo)
+let receiverPc = null;
+let pendingReceiverCandidates = [];
+let statsInterval = null;
+let previousBytesReceived = 0;
+let previousTimestamp = 0;
+
+// Configuração de Qualidade e Modo
+const STREAM_QUALITIES = {
+    "720p": { width: 1280, height: 720 },
+    "1080p": { width: 1920, height: 1080 }
+};
+const TARGET_FRAME_RATE = 30;
+const BITRATES = {
+    "720p": 3_500_000,
+    "1080p": 7_000_000
+};
+const STREAM_MODES = {
+    gaming: {
+        contentHint: "motion",
+        degradationPreference: "maintain-framerate"
+    },
+    detail: {
+        contentHint: "detail",
+        degradationPreference: "maintain-resolution"
+    }
+};
+
+function getSelectedQuality() {
+    return STREAM_QUALITIES[streamQualitySelect.value] || STREAM_QUALITIES["720p"];
+}
+
+function getSelectedMode() {
+    return STREAM_MODES[streamModeSelect?.value] || STREAM_MODES.gaming;
+}
 
 // ========================================
-// CHAT DA SALA (SOCKET.IO)
+// ATUALIZAÇÃO VISUAL DA INTERFACE DA SALA
 // ========================================
+function updateRoomUI() {
+    if (!currentRoomCode) return;
 
-function appendChatMessage({ senderName, isMe, text, time, isSystem = false }) {
+    // Badges do cabeçalho
+    const count = roomParticipants.length;
+    if (participantsBadge) {
+        participantsBadge.textContent = `👥 ${count}/5`;
+    }
+
+    if (chatParticipants) {
+        chatParticipants.textContent = `${count} ${count === 1 ? "pessoa" : "pessoas"}`;
+    }
+
+    if (isBroadcasting) {
+        // Usuário local está transmitindo
+        streamStatusBadge.className = "badge badge-live";
+        streamStatusBadge.textContent = "🔴 Você está transmitindo";
+
+        startStreamBtn.classList.add("hidden");
+        stopStreamBtn.classList.remove("hidden");
+
+        const viewersCount = Math.max(0, count - 1);
+        streamRoleHint.textContent = `Transmitindo para ${viewersCount} ${viewersCount === 1 ? "amigo" : "amigos"}`;
+        videoPlaceholder.textContent = "Você está transmitindo sua tela para a sala.";
+        statsBar.classList.add("hidden");
+    } else if (currentStreamerId) {
+        // Outro usuário está transmitindo
+        const streamer = roomParticipants.find(p => p.id === currentStreamerId);
+        const streamerName = streamer ? streamer.name : "Alguém";
+
+        streamStatusBadge.className = "badge badge-live";
+        streamStatusBadge.textContent = `🟢 ${streamerName} transmitindo`;
+
+        startStreamBtn.classList.remove("hidden");
+        startStreamBtn.disabled = true;
+        startStreamBtn.title = "Aguarde a transmissão atual terminar para transmitir.";
+        stopStreamBtn.classList.add("hidden");
+
+        streamRoleHint.textContent = `${streamerName} está transmitindo`;
+        videoPlaceholder.textContent = `Conectando à transmissão de ${streamerName}...`;
+    } else {
+        // Ninguém está transmitindo
+        streamStatusBadge.className = "badge badge-idle";
+        streamStatusBadge.textContent = "⚪ Ninguém transmitindo";
+
+        startStreamBtn.classList.remove("hidden");
+        startStreamBtn.disabled = false;
+        startStreamBtn.title = "";
+        stopStreamBtn.classList.add("hidden");
+
+        streamRoleHint.textContent = "Livre para transmitir";
+        videoPlaceholder.textContent = "Aguardando transmissão...";
+        statsBar.classList.add("hidden");
+    }
+}
+
+// ========================================
+// CHAT DA SALA
+// ========================================
+function appendChatMessage({ senderName, isMe, isStreamer = false, text, time, isSystem = false }) {
     if (!chatMessages) return;
 
-    // Remover dica vazia se houver
     const emptyHint = chatMessages.querySelector(".chat-empty-hint");
     if (emptyHint) {
         emptyHint.remove();
@@ -208,6 +258,9 @@ function appendChatMessage({ senderName, isMe, text, time, isSystem = false }) {
         const authorSpan = document.createElement("span");
         authorSpan.className = "chat-msg-author";
         authorSpan.textContent = isMe ? "Você" : senderName;
+        if (isStreamer) {
+            authorSpan.textContent += " 🎥";
+        }
 
         const timeSpan = document.createElement("span");
         timeSpan.className = "chat-msg-time";
@@ -226,7 +279,6 @@ function appendChatMessage({ senderName, isMe, text, time, isSystem = false }) {
         chatMessages.appendChild(msgDiv);
     }
 
-    // Rola automaticamente para a última mensagem
     chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
@@ -243,10 +295,10 @@ if (chatForm) {
 }
 
 socket.on("chat-message", (data) => {
-    const isMe = data.senderId === socket.id;
     appendChatMessage({
         senderName: data.senderName,
-        isMe,
+        isMe: data.senderId === myId,
+        isStreamer: data.isStreamer,
         text: data.text,
         time: data.time
     });
@@ -258,247 +310,65 @@ socket.on("chat-system-message", (text) => {
         isSystem: true
     });
 });
+
 // ========================================
 // TELA CHEIA DO PLAYER
 // ========================================
-
 fullscreenButton.addEventListener("click", async () => {
-
     try {
-
         if (!document.fullscreenElement) {
-
             await videoContainer.requestFullscreen();
-
         } else {
-
             await document.exitFullscreen();
-
         }
-
     } catch (error) {
-
-        console.error(
-            "Não foi possível alterar a tela cheia:",
-            error
-        );
-
+        console.error("Não foi possível alterar a tela cheia:", error);
     }
-
 });
-
 
 document.addEventListener("fullscreenchange", () => {
-
-    const isFullscreen =
-        document.fullscreenElement === videoContainer;
-
+    const isFullscreen = document.fullscreenElement === videoContainer;
     fullscreenButton.setAttribute(
         "aria-label",
-        isFullscreen
-            ? "Sair da tela cheia"
-            : "Entrar em tela cheia"
+        isFullscreen ? "Sair da tela cheia" : "Entrar em tela cheia"
     );
-
-    fullscreenButton.title =
-        isFullscreen
-            ? "Sair da tela cheia (Esc)"
-            : "Tela cheia";
-
+    fullscreenButton.title = isFullscreen ? "Sair da tela cheia (Esc)" : "Tela cheia";
 });
 
-
 // ========================================
-// CONFIGURAÇÃO WEBRTC
+// PREFERÊNCIA DE CODEC E PARÂMETROS WEBRTC
 // ========================================
+function preferCodec(pc, mimeType) {
+    if (!pc) return;
 
-let peerConnection = null;
+    const transceiver = pc.getTransceivers()
+        .find(t => t.sender.track?.kind === "video" || t.receiver.track?.kind === "video");
 
-function createPeerConnection() {
-
-    const pc = new RTCPeerConnection({
-
-        iceServers: [
-            {
-                urls: "stun:stun.l.google.com:19302"
-            }
-        ]
-
-    });
-
-
-    pc.onicecandidate = (event) => {
-
-        if (event.candidate) {
-
-            socket.emit(
-                "webrtc-candidate",
-                event.candidate
-            );
-
-        }
-
-    };
-
-
-    pc.onconnectionstatechange = () => {
-
-        console.log(
-            "Connection state:",
-            pc.connectionState
-        );
-
-    };
-
-
-    pc.ontrack = (event) => {
-
-        const stream = event.streams[0];
-
-        // ontrack dispara uma vez por track (áudio e vídeo);
-        // só configura o player na primeira vez para esse stream.
-        if (remoteVideo.srcObject !== stream) {
-
-            remoteVideo.srcObject = stream;
-            remoteVideo.muted = false;
-            remoteVideo.volume = 1;
-
-            remoteVideo.play().catch((error) => {
-
-                if (error.name === "AbortError") {
-                    return;
-                }
-
-                console.error(
-                    "Erro ao iniciar vídeo:",
-                    error
-                );
-
-            });
-
-        }
-
-        videoPlaceholder.classList.add("hidden");
-
-        connectionStatus.textContent =
-            "🟢 Conectado";
-
-
-        previousBytesReceived = 0;
-        previousTimestamp = 0;
-
-        if (!statsInterval) {
-
-            statsInterval = setInterval(
-                updateStats,
-                1000
-            );
-
-        }
-        startViewerDiagnostics();
-    };
-
-
-    return pc;
-
-}
-
-
-if (!peerConnection) {
-
-    peerConnection = createPeerConnection();
-
-}
-
-
-let localStream = null;
-
-let isHost = false;
-
-let currentRoomCode = null;
-
-let statsInterval = null;
-
-let previousBytesReceived = 0;
-
-let previousTimestamp = 0;
-
-let pendingIceCandidates = [];
-
-async function processPendingIceCandidates() {
-
-    if (!peerConnection || !peerConnection.remoteDescription || !peerConnection.remoteDescription.type) {
+    if (!transceiver || typeof transceiver.setCodecPreferences !== "function") {
         return;
     }
 
-    while (pendingIceCandidates.length > 0) {
-        const candidate = pendingIceCandidates.shift();
+    const capabilities =
+        (RTCRtpSender.getCapabilities || RTCRtpReceiver.getCapabilities)?.call(
+            RTCRtpSender.getCapabilities ? RTCRtpSender : RTCRtpReceiver,
+            "video"
+        );
+
+    if (!capabilities?.codecs) return;
+
+    const target = mimeType.toLowerCase();
+    const preferred = capabilities.codecs.filter(c => c.mimeType.toLowerCase() === target);
+    const rest = capabilities.codecs.filter(c => c.mimeType.toLowerCase() !== target);
+
+    if (preferred.length > 0) {
         try {
-            await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-            console.log("ICE candidate pendente aplicado com sucesso.");
+            transceiver.setCodecPreferences([...preferred, ...rest]);
+            console.log(`Preferência de codec configurada para: ${mimeType}`);
         } catch (error) {
-            console.warn("Erro ao aplicar ICE candidate pendente:", error);
+            console.warn("Não foi possível aplicar preferências de codec:", error);
         }
     }
-
 }
-
-
-// ========================================
-// QUALIDADE DA TRANSMISSÃO
-// ========================================
-
-const STREAM_QUALITIES = {
-
-    "720p": {
-        width: 1280,
-        height: 720
-    },
-
-    "1080p": {
-        width: 1920,
-        height: 1080
-    }
-
-};
-
-const TARGET_FRAME_RATE = 30;
-
-const BITRATES = {
-    "720p": 3_500_000,
-    "1080p": 7_000_000
-};
-
-function getSelectedQuality() {
-
-    return STREAM_QUALITIES[
-        streamQualitySelect.value
-    ] || STREAM_QUALITIES["720p"];
-
-}
-
-// ========================================
-// PROPÓSITO / MODO DA TRANSMISSÃO
-// ========================================
-
-const STREAM_MODES = {
-    gaming: {
-        contentHint: "motion",
-        degradationPreference: "maintain-framerate"
-    },
-    detail: {
-        contentHint: "detail",
-        degradationPreference: "maintain-resolution"
-    }
-};
-
-function getSelectedMode() {
-    return STREAM_MODES[streamModeSelect?.value] || STREAM_MODES.gaming;
-}
-
-// ========================================
-// ATUALIZAR BITRATE E PARÂMETROS AO VIVO
-// ========================================
 
 async function updateSenderBitrate(pc, bitrateValue) {
     if (!pc) return;
@@ -510,7 +380,7 @@ async function updateSenderBitrate(pc, bitrateValue) {
         if (parameters.encodings && parameters.encodings.length > 0) {
             parameters.encodings[0].maxBitrate = bitrateValue;
             await videoSender.setParameters(parameters);
-            console.log(`Bitrate atualizado dinamicamente para ${(bitrateValue / 1_000_000).toFixed(1)} Mbps`);
+            console.log(`Bitrate atualizado para ${(bitrateValue / 1_000_000).toFixed(1)} Mbps`);
         }
     } catch (err) {
         console.warn("Não foi possível atualizar o bitrate dinamicamente:", err);
@@ -532,1315 +402,646 @@ async function updateSenderMode(pc, mode) {
     }
 }
 
-
 async function applyStreamQuality(videoTrack) {
-
     const quality = getSelectedQuality();
-
     await videoTrack.applyConstraints({
-
-        width: {
-            ideal: quality.width,
-            max: quality.width
-        },
-
-        height: {
-            ideal: quality.height,
-            max: quality.height
-        },
-
-        frameRate: {
-            ideal: TARGET_FRAME_RATE,
-            max: TARGET_FRAME_RATE
-        }
-
+        width: { ideal: quality.width, max: quality.width },
+        height: { ideal: quality.height, max: quality.height },
+        frameRate: { ideal: TARGET_FRAME_RATE, max: TARGET_FRAME_RATE }
     });
-
-    console.log(
-        `Qualidade solicitada: ${quality.width} × ${quality.height}`,
-        videoTrack.getSettings()
-    );
-
 }
 
-
-// Alterar qualidade durante a transmissão
-
+// Mudança dinâmica de qualidade durante a transmissão
 streamQualitySelect.addEventListener("change", async () => {
-
-    if (!localStream) {
-        return;
+    if (!localStream) return;
+    const videoTrack = localStream.getVideoTracks()[0];
+    if (videoTrack) {
+        try {
+            await applyStreamQuality(videoTrack);
+        } catch (err) {
+            console.warn("Erro ao mudar resolução ao vivo:", err);
+        }
     }
 
-    const videoTrack =
-        localStream.getVideoTracks()[0];
-
-    if (!videoTrack) {
-        return;
+    const bitValue = BITRATES[streamQualitySelect.value] || BITRATES["720p"];
+    for (const pc of peerConnections.values()) {
+        await updateSenderBitrate(pc, bitValue);
     }
-
-    try {
-
-        await applyStreamQuality(videoTrack);
-        await updateSenderBitrate(
-            peerConnection,
-            BITRATES[streamQualitySelect.value] || BITRATES["720p"]
-        );
-
-        hostStatus.textContent =
-            "🟢 Qualidade da transmissão atualizada!";
-
-    } catch (error) {
-
-        console.warn(
-            "Não foi possível alterar a qualidade durante a transmissão:",
-            error
-        );
-
-        hostStatus.textContent =
-            "🟡 O navegador não permitiu alterar a resolução ao vivo. A transmissão continua normalmente.";
-
-    }
-
 });
 
-
-// Alterar propósito da transmissão durante a transmissão
-
+// Mudança dinâmica de modo durante a transmissão
 if (streamModeSelect) {
-
     streamModeSelect.addEventListener("change", async () => {
-
-        if (!localStream) {
-            return;
-        }
-
-        const videoTrack =
-            localStream.getVideoTracks()[0];
-
+        if (!localStream) return;
+        const videoTrack = localStream.getVideoTracks()[0];
         const mode = getSelectedMode();
-
         if (videoTrack) {
             videoTrack.contentHint = mode.contentHint;
         }
-
-        await updateSenderMode(peerConnection, mode);
-
-        hostStatus.textContent =
-            "🟢 Modo de transmissão atualizado!";
-
+        for (const pc of peerConnections.values()) {
+            await updateSenderMode(pc, mode);
+        }
     });
-
 }
 
+// ========================================
+// TRANSMISSÃO: CRIAÇÃO DE PEER CONNECTION PARA UM VIEWER
+// ========================================
+async function createPeerConnectionForViewer(viewerId) {
+    console.log(`Criando conexão WebRTC com o espectador: ${viewerId}`);
+
+    const pc = new RTCPeerConnection({
+        iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+    });
+
+    peerConnections.set(viewerId, pc);
+    pendingCandidatesMap.set(viewerId, []);
+
+    pc.onicecandidate = (event) => {
+        if (event.candidate) {
+            socket.emit("webrtc-candidate", {
+                targetId: viewerId,
+                candidate: event.candidate
+            });
+        }
+    };
+
+    pc.onconnectionstatechange = () => {
+        console.log(`Conexão com ${viewerId}: ${pc.connectionState}`);
+        if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
+            // Tentativa de reconexão se necessário
+        }
+    };
+
+    // Adiciona as faixas da captura de tela
+    if (localStream) {
+        localStream.getTracks().forEach(track => {
+            pc.addTrack(track, localStream);
+        });
+    }
+
+    // Configura parâmetros de codificação de vídeo
+    const mode = getSelectedMode();
+    const videoSender = pc.getSenders().find(s => s.track?.kind === "video");
+    if (videoSender) {
+        try {
+            const parameters = videoSender.getParameters();
+            if (parameters.encodings && parameters.encodings.length > 0) {
+                parameters.encodings[0].maxFramerate = TARGET_FRAME_RATE;
+                parameters.encodings[0].maxBitrate =
+                    BITRATES[streamQualitySelect.value] || BITRATES["720p"];
+                parameters.encodings[0].networkPriority = "high";
+                parameters.encodings[0].priority = "high";
+            }
+            parameters.degradationPreference = mode.degradationPreference;
+            await videoSender.setParameters(parameters);
+        } catch (err) {
+            console.warn("Aviso ao configurar parâmetros de vídeo:", err);
+        }
+    }
+
+    // Configura áudio (128 kbps estável)
+    const audioSender = pc.getSenders().find(s => s.track?.kind === "audio");
+    if (audioSender) {
+        try {
+            const audioParams = audioSender.getParameters();
+            if (audioParams.encodings && audioParams.encodings.length > 0) {
+                audioParams.encodings[0].maxBitrate = 128_000;
+                audioParams.encodings[0].networkPriority = "high";
+                audioParams.encodings[0].priority = "high";
+            }
+            await audioSender.setParameters(audioParams);
+        } catch (err) {
+            console.warn("Aviso ao configurar parâmetros de áudio:", err);
+        }
+    }
+
+    preferCodec(pc, "video/H264");
+
+    // Cria a oferta WebRTC e envia ao espectador
+    try {
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+
+        await updateSenderBitrate(
+            pc,
+            BITRATES[streamQualitySelect.value] || BITRATES["720p"]
+        );
+
+        socket.emit("webrtc-offer", {
+            targetId: viewerId,
+            offer
+        });
+        console.log(`Oferta WebRTC enviada para ${viewerId}`);
+    } catch (err) {
+        console.error(`Erro ao criar oferta para ${viewerId}:`, err);
+    }
+
+    return pc;
+}
 
 // ========================================
-// CRIAR SALA
+// INICIAR E PARAR TRANSMISSÃO (BROADCASTER)
+// ========================================
+startStreamBtn.addEventListener("click", async () => {
+    if (currentStreamerId && currentStreamerId !== myId) {
+        alert("Já existe uma transmissão ativa nesta sala.");
+        return;
+    }
+
+    try {
+        const quality = getSelectedQuality();
+        localStream = await navigator.mediaDevices.getDisplayMedia({
+            video: {
+                width: { ideal: quality.width },
+                height: { ideal: quality.height },
+                frameRate: { ideal: TARGET_FRAME_RATE, max: TARGET_FRAME_RATE }
+            },
+            audio: {
+                echoCancellation: false,
+                noiseSuppression: false,
+                autoGainControl: false
+            }
+        });
+
+        const videoTrack = localStream.getVideoTracks()[0];
+        if (!videoTrack) {
+            throw new Error("Nenhuma faixa de vídeo encontrada.");
+        }
+
+        const mode = getSelectedMode();
+        videoTrack.contentHint = mode.contentHint;
+
+        try {
+            await applyStreamQuality(videoTrack);
+        } catch (err) {
+            console.warn("Aviso ao aplicar qualidade:", err);
+        }
+
+        videoTrack.addEventListener("ended", () => {
+            stopBroadcasting();
+        });
+
+        isBroadcasting = true;
+        currentStreamerId = myId;
+
+        // Notifica o servidor para atualizar o estado da sala
+        socket.emit("start-stream");
+
+        // Cria conexões para todos os outros participantes da sala
+        const viewers = roomParticipants.filter(p => p.id !== myId);
+        for (const viewer of viewers) {
+            await createPeerConnectionForViewer(viewer.id);
+        }
+
+        updateRoomUI();
+    } catch (error) {
+        console.error("Erro ao iniciar transmissão:", error);
+        stopBroadcasting();
+    }
+});
+
+stopStreamBtn.addEventListener("click", () => {
+    stopBroadcasting();
+});
+
+function stopBroadcasting() {
+    if (!isBroadcasting && !localStream) return;
+
+    console.log("Encerrando transmissão...");
+    isBroadcasting = false;
+
+    if (localStream) {
+        localStream.getTracks().forEach(t => t.stop());
+        localStream = null;
+    }
+
+    for (const pc of peerConnections.values()) {
+        try {
+            pc.close();
+        } catch (e) {}
+    }
+    peerConnections.clear();
+    pendingCandidatesMap.clear();
+
+    if (currentStreamerId === myId) {
+        currentStreamerId = null;
+        socket.emit("stop-stream");
+    }
+
+    updateRoomUI();
+}
+
+// ========================================
+// VISUALIZADOR: RECONHECIMENTO DE OFERTA E RECEPÇÃO DO STREAM
+// ========================================
+function createReceiverPeerConnection(streamerId) {
+    if (receiverPc) {
+        try {
+            receiverPc.close();
+        } catch (e) {}
+    }
+
+    pendingReceiverCandidates = [];
+
+    receiverPc = new RTCPeerConnection({
+        iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+    });
+
+    receiverPc.onicecandidate = (event) => {
+        if (event.candidate) {
+            socket.emit("webrtc-candidate", {
+                targetId: streamerId,
+                candidate: event.candidate
+            });
+        }
+    };
+
+    receiverPc.ontrack = (event) => {
+        console.log("Faixa recebida do transmissor:", event.track.kind);
+        const stream = event.streams[0];
+
+        if (remoteVideo.srcObject !== stream) {
+            remoteVideo.srcObject = stream;
+            remoteVideo.muted = false;
+            remoteVideo.volume = 1;
+
+            remoteVideo.play().catch(err => {
+                if (err.name !== "AbortError") {
+                    console.error("Erro ao dar play no vídeo:", err);
+                }
+            });
+        }
+
+        videoPlaceholder.classList.add("hidden");
+        statsBar.classList.remove("hidden");
+
+        previousBytesReceived = 0;
+        previousTimestamp = 0;
+
+        if (!statsInterval) {
+            statsInterval = setInterval(updateStats, 1000);
+        }
+    };
+
+    receiverPc.onconnectionstatechange = () => {
+        console.log("Receiver connection state:", receiverPc.connectionState);
+    };
+
+    return receiverPc;
+}
+
+async function processPendingReceiverCandidates() {
+    if (!receiverPc || !receiverPc.remoteDescription || !receiverPc.remoteDescription.type) {
+        return;
+    }
+    while (pendingReceiverCandidates.length > 0) {
+        const candidate = pendingReceiverCandidates.shift();
+        try {
+            await receiverPc.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (err) {
+            console.warn("Erro ao aplicar ICE candidate pendente no receiver:", err);
+        }
+    }
+}
+
+// ========================================
+// ESTATÍSTICAS DA TRANSMISSÃO (RECEIVER)
+// ========================================
+async function updateStats() {
+    if (!receiverPc) return;
+
+    try {
+        const stats = await receiverPc.getStats();
+        let videoStats = null;
+
+        stats.forEach(report => {
+            if (report.type === "inbound-rtp" && report.kind === "video") {
+                videoStats = report;
+            }
+        });
+
+        if (!videoStats) return;
+
+        const currentFPS = videoStats.framesPerSecond || 0;
+        const width = videoStats.frameWidth || 0;
+        const height = videoStats.frameHeight || 0;
+        const bytesReceived = videoStats.bytesReceived || 0;
+        const timestamp = videoStats.timestamp;
+
+        let currentBitrate = 0;
+        if (previousTimestamp !== 0) {
+            const bytesDiff = bytesReceived - previousBytesReceived;
+            const timeDiff = timestamp - previousTimestamp;
+            if (timeDiff > 0) {
+                currentBitrate = (bytesDiff * 8) / (timeDiff / 1000);
+            }
+        }
+
+        previousBytesReceived = bytesReceived;
+        previousTimestamp = timestamp;
+
+        resolution.textContent = width && height ? `${width} × ${height}` : "--";
+        fps.textContent = currentFPS ? Math.round(currentFPS) : "--";
+        bitrate.textContent = currentBitrate
+            ? `${(currentBitrate / 1_000_000).toFixed(2)} Mbps`
+            : "--";
+    } catch (err) {
+        console.warn("Erro ao ler estatísticas:", err);
+    }
+}
+
+function stopReceivingStream() {
+    if (statsInterval) {
+        clearInterval(statsInterval);
+        statsInterval = null;
+    }
+
+    if (receiverPc) {
+        try {
+            receiverPc.close();
+        } catch (e) {}
+        receiverPc = null;
+    }
+
+    pendingReceiverCandidates = [];
+    remoteVideo.pause();
+    remoteVideo.srcObject = null;
+    remoteVideo.load();
+
+    videoPlaceholder.classList.remove("hidden");
+    videoPlaceholder.textContent = "Aguardando transmissão...";
+    statsBar.classList.add("hidden");
+
+    resolution.textContent = "--";
+    fps.textContent = "--";
+    bitrate.textContent = "--";
+    previousBytesReceived = 0;
+    previousTimestamp = 0;
+}
+
+// ========================================
+// ROTAS DE SINALIZAÇÃO WEBRTC (OFFER, ANSWER, CANDIDATE)
 // ========================================
 
+// Recebimento de Oferta (como Espectador)
+socket.on("webrtc-offer", async ({ fromId, offer }) => {
+    console.log(`Oferta WebRTC recebida de ${fromId}`);
+    if (isBroadcasting) {
+        console.warn("Ignorando oferta pois já sou o transmissor.");
+        return;
+    }
+
+    currentStreamerId = fromId;
+    updateRoomUI();
+
+    const pc = createReceiverPeerConnection(fromId);
+
+    try {
+        await pc.setRemoteDescription(new RTCSessionDescription(offer));
+        await processPendingReceiverCandidates();
+
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+
+        socket.emit("webrtc-answer", {
+            targetId: fromId,
+            answer
+        });
+        console.log(`Resposta WebRTC enviada para ${fromId}`);
+    } catch (err) {
+        console.error("Erro ao responder oferta WebRTC:", err);
+    }
+});
+
+// Recebimento de Resposta (como Transmissor)
+socket.on("webrtc-answer", async ({ fromId, answer }) => {
+    console.log(`Resposta WebRTC recebida de ${fromId}`);
+    const pc = peerConnections.get(fromId);
+    if (!pc) return;
+
+    try {
+        await pc.setRemoteDescription(new RTCSessionDescription(answer));
+
+        // Processa candidatos pendentes
+        const pending = pendingCandidatesMap.get(fromId) || [];
+        while (pending.length > 0) {
+            const cand = pending.shift();
+            try {
+                await pc.addIceCandidate(new RTCIceCandidate(cand));
+            } catch (err) {
+                console.warn(`Erro ao aplicar candidate para ${fromId}:`, err);
+            }
+        }
+    } catch (err) {
+        console.error(`Erro ao aplicar resposta de ${fromId}:`, err);
+    }
+});
+
+// Recebimento de ICE Candidate
+socket.on("webrtc-candidate", async ({ fromId, candidate }) => {
+    if (isBroadcasting) {
+        // Transmissor recebendo do espectador
+        const pc = peerConnections.get(fromId);
+        if (!pc) return;
+
+        if (!pc.remoteDescription || !pc.remoteDescription.type) {
+            const list = pendingCandidatesMap.get(fromId) || [];
+            list.push(candidate);
+            pendingCandidatesMap.set(fromId, list);
+            return;
+        }
+
+        try {
+            await pc.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (err) {
+            console.error(`Erro ao adicionar candidate de ${fromId}:`, err);
+        }
+    } else {
+        // Espectador recebendo do transmissor
+        if (!receiverPc || !receiverPc.remoteDescription || !receiverPc.remoteDescription.type) {
+            pendingReceiverCandidates.push(candidate);
+            return;
+        }
+
+        try {
+            await receiverPc.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (err) {
+            console.error("Erro ao adicionar candidate no receiver:", err);
+        }
+    }
+});
+
+// ========================================
+// EVENTOS DE SALA (SOCKET.IO)
+// ========================================
+
+// Criar Sala
 createRoomButton.addEventListener("click", () => {
-
     socket.emit("create-room", {
         username: getStoredUsername()
     });
-
 });
 
-
-// ========================================
-// SALA CRIADA
-// ========================================
-
-socket.on("room-created", (data) => {
-
-    isHost = true;
-
-    const roomCode = (typeof data === "object" && data.roomCode)
-        ? data.roomCode
-        : data;
-
-    currentRoomCode = roomCode;
-
-    roomCodeDisplay.textContent = roomCode;
-
-    leaveRoomButton.classList.remove("hidden");
-
-    createSection.classList.add("hidden");
-
-    joinSection.classList.add("hidden");
-
-    if (profileSection) {
-        profileSection.classList.add("hidden");
-    }
-
-    if (hostLayout) {
-        hostLayout.classList.remove("hidden");
-        if (chatSection) {
-            hostLayout.appendChild(chatSection);
-        }
-    }
-
-    hostSection.classList.remove("hidden");
-
-    if (chatSection) {
-        chatSection.classList.remove("hidden");
-        chatMessages.innerHTML = '<div class="chat-empty-hint">Nenhuma mensagem ainda. Diga oi!</div>';
-        if (chatParticipants) {
-            chatParticipants.textContent = "Aguardando amigo...";
-        }
-    }
-
-    hostStatus.textContent =
-        "🟡 Aguardando seu amigo...";
-
-});
-
-
-copyRoomCodeButton.addEventListener("click", async () => {
-
-    if (!currentRoomCode) {
-
-        return;
-
-    }
-
-
-    await navigator.clipboard.writeText(
-        currentRoomCode
-    );
-
-
-    copyRoomCodeButton.textContent =
-        "Copiado!";
-
-
-    setTimeout(() => {
-
-        copyRoomCodeButton.textContent =
-            "Copiar";
-
-    }, 1500);
-
-});
-
-
-// ========================================
-// ENTRAR NA SALA
-// ========================================
-
+// Entrar em Sala
 joinRoomButton.addEventListener("click", () => {
-
-    const roomCode = roomCodeInput.value.trim();
-
-
-    if (!roomCode) {
-
-        status.textContent =
-            "Digite um código de sala.";
-
+    const code = roomCodeInput.value.trim();
+    if (!code) {
+        status.textContent = "Digite um código de sala.";
         return;
-
     }
-
-
-    status.textContent =
-        "";
-
-
+    status.textContent = "";
     socket.emit("join-room", {
-        roomCode,
+        roomCode: code,
         username: getStoredUsername()
     });
-
 });
 
+// Copiar Código da Sala
+copyRoomCodeButton.addEventListener("click", async () => {
+    if (!currentRoomCode) return;
+    await navigator.clipboard.writeText(currentRoomCode);
+    copyRoomCodeButton.textContent = "Copiado!";
+    setTimeout(() => {
+        copyRoomCodeButton.textContent = "Copiar";
+    }, 1500);
+});
 
-// ========================================
-// ENTROU NA SALA
-// ========================================
-
+// Resposta: Entrou / Criou Sala com Sucesso
 socket.on("room-joined", (data) => {
+    currentRoomCode = data.roomCode;
+    roomParticipants = data.participants || [];
+    currentStreamerId = data.currentStreamer || null;
+    myId = data.myId || socket.id;
 
-    const roomCode = (typeof data === "object" && data.roomCode)
-        ? data.roomCode
-        : data;
+    roomCodeDisplay.textContent = currentRoomCode;
 
-    currentRoomCode = roomCode;
-
-    leaveRoomButton.classList.remove("hidden");
-
-    joinSection.classList.add("hidden");
-
+    // Transição de tela
     createSection.classList.add("hidden");
+    joinSection.classList.add("hidden");
+    if (profileSection) profileSection.classList.add("hidden");
 
-    if (profileSection) {
-        profileSection.classList.add("hidden");
+    roomSection.classList.remove("hidden");
+    if (appContainer) appContainer.classList.add("in-room");
+
+    chatMessages.innerHTML = '<div class="chat-empty-hint">Nenhuma mensagem ainda. Diga oi para o grupo!</div>';
+
+    updateRoomUI();
+});
+
+// Outro usuário entrou na sala
+socket.on("user-joined", async (data) => {
+    console.log(`${data.name} entrou na sala.`);
+    roomParticipants = data.participants || [];
+    currentStreamerId = data.currentStreamer || currentStreamerId;
+
+    updateRoomUI();
+
+    // Se EU estou transmitindo tela, crio dinamicamente uma oferta para quem acabou de entrar!
+    if (isBroadcasting && localStream) {
+        console.log(`Enviando transmissão automaticamente para o novo membro: ${data.name} (${data.id})`);
+        await createPeerConnectionForViewer(data.id);
+    }
+});
+
+// Outro usuário saiu da sala
+socket.on("user-left", (data) => {
+    console.log(`${data.name} saiu da sala.`);
+    roomParticipants = data.participants || [];
+
+    // Se EU estou transmitindo, limpo a conexão com esse espectador
+    if (isBroadcasting && peerConnections.has(data.id)) {
+        const pc = peerConnections.get(data.id);
+        try { pc.close(); } catch (e) {}
+        peerConnections.delete(data.id);
+        pendingCandidatesMap.delete(data.id);
     }
 
-    viewerSection.classList.remove("hidden");
-
-    // No viewer, coloca o chat ao lado do player na divisão 70/30
-    if (streamLayout && chatSection) {
-        streamLayout.appendChild(chatSection);
+    // Se quem saiu era o streamer
+    if (currentStreamerId === data.id) {
+        currentStreamerId = null;
+        stopReceivingStream();
     }
 
-    if (chatSection) {
-        chatSection.classList.remove("hidden");
-        chatMessages.innerHTML = '<div class="chat-empty-hint">Nenhuma mensagem ainda. Diga oi!</div>';
-        if (chatParticipants) {
-            const hostName = (typeof data === "object" && data.hostName) ? data.hostName : "Host";
-            chatParticipants.textContent = `Você & ${hostName}`;
-        }
+    updateRoomUI();
+});
+
+// Alguém começou a transmitir
+socket.on("stream-started", (data) => {
+    console.log(`${data.streamerName} iniciou uma transmissão.`);
+    currentStreamerId = data.streamerId;
+    updateRoomUI();
+});
+
+// Transmissão foi encerrada
+socket.on("stream-stopped", () => {
+    console.log("A transmissão foi encerrada.");
+    currentStreamerId = null;
+
+    if (isBroadcasting) {
+        stopBroadcasting();
+    } else {
+        stopReceivingStream();
     }
 
-    connectionStatus.textContent =
-        "🟡 Conectando...";
+    updateRoomUI();
+});
 
+// Erro de sala ou transmissão
+socket.on("room-error", (msg) => {
+    status.textContent = msg;
+});
+
+socket.on("stream-error", (msg) => {
+    alert(msg);
 });
 
 // ========================================
-// EVENTO SAIR DA SALA
+// SAIR DA SALA
 // ========================================
-
 leaveRoomButton.addEventListener("click", () => {
-
-    if (!currentRoomCode) {
-        return;
-    }
+    if (!currentRoomCode) return;
     socket.emit("leave-room");
-
     resetRoomInterface("Você saiu da sala.");
-
 });
-
-
-// ========================================
-// ANFITRIÃO ENCERROU A SALA
-// ========================================
-
-socket.on("host-left", () => {
-
-    resetRoomInterface("O host encerrou a sala.");
-
-});
-
-
-// ========================================
-// VIEWER ENTROU
-// ========================================
-
-socket.on("viewer-joined", (data) => {
-
-    console.log("Viewer conectado!");
-
-    const viewerName = (data && data.viewerName) ? data.viewerName : "Seu amigo";
-
-    hostStatus.textContent =
-        `🟢 ${viewerName} está conectado!`;
-
-    if (chatParticipants) {
-        chatParticipants.textContent = `Você & ${viewerName}`;
-    }
-
-    shareScreenButton.classList.remove(
-        "hidden"
-    );
-
-});
-
-
-// ========================================
-// COMPARTILHAR A TELA
-// ========================================
-
-function preferCodec(pc, mimeType) {
-
-    if (!pc) return;
-
-    const transceiver = pc.getTransceivers()
-        .find(t => t.sender.track?.kind === "video" || t.receiver.track?.kind === "video");
-
-    if (!transceiver || typeof transceiver.setCodecPreferences !== "function") {
-        return;
-    }
-
-    const capabilities =
-        (RTCRtpSender.getCapabilities || RTCRtpReceiver.getCapabilities)?.call(
-            RTCRtpSender.getCapabilities ? RTCRtpSender : RTCRtpReceiver,
-            "video"
-        );
-
-    if (!capabilities?.codecs) {
-        return;
-    }
-
-    const target = mimeType.toLowerCase();
-    const preferred = capabilities.codecs.filter(c => c.mimeType.toLowerCase() === target);
-    const rest = capabilities.codecs.filter(c => c.mimeType.toLowerCase() !== target);
-
-    if (preferred.length > 0) {
-        try {
-            transceiver.setCodecPreferences([...preferred, ...rest]);
-            console.log(`Preferencia de codec configurada para: ${mimeType}`);
-        } catch (error) {
-            console.warn("Não foi possível aplicar preferências de codec:", error);
-        }
-    }
-
-}
-
-shareScreenButton.addEventListener(
-    "click",
-    async () => {
-
-        try {
-
-            const captureQuality = getSelectedQuality();
-
-            localStream =
-                await navigator.mediaDevices.getDisplayMedia({
-
-                    video: {
-
-                        width: { ideal: captureQuality.width },
-
-                        height: { ideal: captureQuality.height },
-
-                        frameRate: {
-                            ideal: TARGET_FRAME_RATE,
-                            max: TARGET_FRAME_RATE
-                        }
-
-                    },
-
-                    // Evita que o navegador processe o áudio do sistema
-                    // como se fosse voz (o que deixa o som abafado).
-                    audio: {
-                        echoCancellation: false,
-                        noiseSuppression: false,
-                        autoGainControl: false
-                    }
-
-                });
-
-
-            console.log(
-                "Tela capturada!"
-            );
-
-
-            const videoTrack =
-                localStream.getVideoTracks()[0];
-
-            if (!videoTrack) {
-                throw new Error("A captura não retornou uma faixa de vídeo.");
-            }
-
-            const mode = getSelectedMode();
-            videoTrack.contentHint = mode.contentHint;
-
-
-            // Tenta aplicar a qualidade selecionada.
-            // Se falhar, mantém a captura padrão.
-
-            try {
-
-                await applyStreamQuality(videoTrack);
-
-            } catch (qualityError) {
-
-                console.warn(
-                    "O navegador não conseguiu aplicar a resolução selecionada. A transmissão continuará com a configuração padrão:",
-                    qualityError
-                );
-
-            }
-
-
-            console.log(
-                "Configuração atual da captura:",
-                videoTrack.getSettings()
-            );
-
-
-            // Garante uma conexão estável antes de adicionar as tracks.
-
-            if (peerConnection.signalingState !== "stable") {
-
-                peerConnection.close();
-
-                peerConnection =
-                    createPeerConnection();
-
-            }
-
-
-            localStream
-                .getTracks()
-                .forEach(track => {
-
-                    peerConnection.addTrack(
-                        track,
-                        localStream
-                    );
-
-                });
-
-
-            const videoSender =
-                peerConnection
-                    .getSenders()
-                    .find(
-                        sender =>
-                            sender.track?.kind === "video"
-                    );
-
-
-            if (videoSender) {
-
-                try {
-
-                    const parameters = videoSender.getParameters();
-
-                    if (parameters.encodings && parameters.encodings.length > 0) {
-                        parameters.encodings[0].maxFramerate = TARGET_FRAME_RATE;
-                        parameters.encodings[0].maxBitrate =
-                            BITRATES[streamQualitySelect.value] || BITRATES["720p"];
-                        parameters.encodings[0].networkPriority = "high";
-                        parameters.encodings[0].priority = "high";
-                    }
-
-                    parameters.degradationPreference = mode.degradationPreference;
-
-                    await videoSender.setParameters(parameters);
-                    console.log("Parâmetros de encoding configurados com sucesso:", parameters);
-
-                } catch (paramError) {
-
-                    console.warn(
-                        "Não foi possível aplicar parâmetros avançados de encoding:",
-                        paramError
-                    );
-
-                }
-
-            }
-
-
-            const audioSender =
-                peerConnection
-                    .getSenders()
-                    .find(
-                        sender =>
-                            sender.track?.kind === "audio"
-                    );
-
-            if (audioSender) {
-
-                try {
-
-                    const audioParameters = audioSender.getParameters();
-
-                    if (audioParameters.encodings && audioParameters.encodings.length > 0) {
-                        // Limitar áudio em 128 kbps para não competir com vídeo e priorizar estabilidade
-                        audioParameters.encodings[0].maxBitrate = 128_000;
-                        audioParameters.encodings[0].networkPriority = "high";
-                        audioParameters.encodings[0].priority = "high";
-                    }
-
-                    await audioSender.setParameters(audioParameters);
-                    console.log("Parâmetros de áudio configurados com sucesso:", audioParameters);
-
-                } catch (audioError) {
-
-                    console.warn(
-                        "Não foi possível aplicar parâmetros avançados de áudio:",
-                        audioError
-                    );
-
-                }
-
-            }
-
-
-            preferCodec(peerConnection, "video/H264");
-
-            const offer =
-                await peerConnection.createOffer();
-
-
-            await peerConnection.setLocalDescription(
-                offer
-            );
-
-
-            // Reaplica o bitrate depois do setLocalDescription para
-            // garantir que o limite não foi descartado pelo navegador.
-            await updateSenderBitrate(
-                peerConnection,
-                BITRATES[streamQualitySelect.value] || BITRATES["720p"]
-            );
-
-
-            socket.emit(
-                "webrtc-offer",
-                offer
-            );
-
-
-            startHostStats();
-
-
-            shareScreenButton.classList.add(
-                "hidden"
-            );
-
-
-            stopSharingButton.classList.remove(
-                "hidden"
-            );
-
-
-            hostStatus.textContent =
-                "🟢 Transmitindo sua tela!";
-
-
-            videoTrack.addEventListener(
-                "ended",
-                stopScreenSharing
-            );
-
-
-        } catch (error) {
-
-            console.error(
-                "Erro ao compartilhar:",
-                error
-            );
-
-            // Não deixa a captura de tela ligada se algo falhou.
-            if (localStream) {
-
-                localStream
-                    .getTracks()
-                    .forEach(track => track.stop());
-
-                localStream = null;
-
-            }
-
-            stopHostStats();
-
-        }
-
-    }
-
-);
-
-
-// ========================================
-// ESTATÍSTICAS DO HOST (DIAGNÓSTICO)
-// ========================================
-
-let hostStatsInterval = null;
-
-function startHostStats() {
-
-    stopHostStats();
-
-    hostStatsInterval = setInterval(async () => {
-
-        if (!peerConnection) return;
-
-        try {
-
-            const stats = await peerConnection.getStats();
-
-            stats.forEach(report => {
-
-                if (
-                    report.type === "outbound-rtp" &&
-                    report.kind === "video"
-                ) {
-
-                    console.log("[host-stats]", {
-
-                        fps: report.framesPerSecond,
-
-                        tamanho: `${report.frameWidth}x${report.frameHeight}`,
-
-                        limitadoPor: report.qualityLimitationReason,
-
-                        alvoMbps: report.targetBitrate
-                            ? (report.targetBitrate / 1e6).toFixed(2)
-                            : "--",
-
-                        bitrateRealMbps: report.bytesSent
-                            ? (report.bytesSent / 1e6).toFixed(2)
-                            : "--",
-
-                        pacotesPerdidos: report.packetsLost,
-
-                        pacotesEnviados: report.packetsSent,
-
-                        encoder: report.encoderImplementation,
-
-                        codec: stats.get(report.codecId)?.mimeType
-
-                    });
-
-                }
-
-            });
-
-        } catch (error) {
-
-            console.warn("Falha ao ler estatísticas do host:", error);
-
-        }
-
-    }, 2000);
-
-}
-
-function stopHostStats() {
-
-    if (hostStatsInterval) {
-
-        clearInterval(hostStatsInterval);
-
-        hostStatsInterval = null;
-
-    }
-
-}
-
-// ========================================
-// DIAGNÓSTICO DO VIEWER (console)
-// ========================================
-
-let viewerDiagInterval = null;
-let viewerDiagPrev = null;
-let viewerRenderedFrames = 0;
-let viewerFrameCallbackId = null;
-
-function startViewerDiagnostics() {
-
-    stopViewerDiagnostics();
-
-    viewerRenderedFrames = 0;
-    viewerDiagPrev = null;
-
-    // Conta quadros realmente apresentados na tela
-    if ("requestVideoFrameCallback" in HTMLVideoElement.prototype) {
-
-        const onFrame = () => {
-            viewerRenderedFrames++;
-            viewerFrameCallbackId =
-                remoteVideo.requestVideoFrameCallback(onFrame);
-        };
-
-        viewerFrameCallbackId =
-            remoteVideo.requestVideoFrameCallback(onFrame);
-
-    }
-
-    viewerDiagInterval = setInterval(async () => {
-
-        if (!peerConnection) return;
-
-        try {
-
-            const stats = await peerConnection.getStats();
-
-            let v = null;
-
-            stats.forEach(report => {
-                if (report.type === "inbound-rtp" && report.kind === "video") {
-                    v = report;
-                }
-            });
-
-            if (!v) return;
-
-            const cur = {
-                t: performance.now(),
-                received: v.framesReceived || 0,
-                decoded: v.framesDecoded || 0,
-                dropped: v.framesDropped || 0,
-                rendered: viewerRenderedFrames,
-                decodeTime: v.totalDecodeTime || 0,
-                lost: v.packetsLost || 0,
-                nack: v.nackCount || 0,
-                pli: v.pliCount || 0,
-                jbDelay: v.jitterBufferDelay || 0,
-                jbCount: v.jitterBufferEmittedCount || 0
-            };
-
-            const prev = viewerDiagPrev;
-            viewerDiagPrev = cur;
-
-            if (!prev) return;
-
-            const dt = (cur.t - prev.t) / 1000;
-            const dDecoded = cur.decoded - prev.decoded;
-            const dJb = cur.jbCount - prev.jbCount;
-
-            const playback = remoteVideo.getVideoPlaybackQuality?.();
-
-            console.log("[viewer-diag]", {
-                recebidoFps: ((cur.received - prev.received) / dt).toFixed(1),
-                decodificadoFps: (dDecoded / dt).toFixed(1),
-                exibidoFps: ((cur.rendered - prev.rendered) / dt).toFixed(1),
-                descartadosNoPeriodo: cur.dropped - prev.dropped,
-                decodeMsPorQuadro: dDecoded > 0
-                    ? (((cur.decodeTime - prev.decodeTime) / dDecoded) * 1000).toFixed(1)
-                    : "--",
-                jitterBufferMs: dJb > 0
-                    ? (((cur.jbDelay - prev.jbDelay) / dJb) * 1000).toFixed(0)
-                    : "--",
-                pacotesPerdidos: cur.lost - prev.lost,
-                nack: cur.nack - prev.nack,
-                pli: cur.pli - prev.pli,
-                freezes: v.freezeCount,
-                droppedPlayback: playback?.droppedVideoFrames,
-                decoder: v.decoderImplementation,
-                hwDecoder: v.powerEfficientDecoder,
-                codec: stats.get(v.codecId)?.mimeType,
-                stream: `${v.frameWidth}x${v.frameHeight}`,
-                player: `${remoteVideo.clientWidth}x${remoteVideo.clientHeight}`,
-                dpr: window.devicePixelRatio
-            });
-
-        } catch (error) {
-
-            console.warn("Falha no diagnóstico do viewer:", error);
-
-        }
-
-    }, 1000);
-
-}
-
-function stopViewerDiagnostics() {
-
-    if (viewerDiagInterval) {
-        clearInterval(viewerDiagInterval);
-        viewerDiagInterval = null;
-    }
-
-    if (
-        viewerFrameCallbackId !== null &&
-        "cancelVideoFrameCallback" in HTMLVideoElement.prototype
-    ) {
-        remoteVideo.cancelVideoFrameCallback(viewerFrameCallbackId);
-    }
-
-    viewerFrameCallbackId = null;
-    viewerDiagPrev = null;
-
-}
-
-
-// ========================================
-// PARAR DE COMPARTILHAR A TELA
-// ========================================
-
-stopSharingButton.addEventListener(
-    "click",
-    stopScreenSharing
-);
-
-
-function stopScreenSharing() {
-
-    console.log(
-        "Encerrando compartilhamento..."
-    );
-
-    stopHostStats();
-
-
-    if (localStream) {
-
-        localStream
-            .getTracks()
-            .forEach(track => {
-
-                track.stop();
-
-            });
-
-
-        localStream = null;
-
-    }
-
-
-    if (peerConnection) {
-
-        peerConnection
-            .getSenders()
-            .forEach(sender => {
-
-                if (sender.track) {
-
-                    peerConnection.removeTrack(
-                        sender
-                    );
-
-                }
-
-            });
-
-
-        peerConnection.close();
-
-        peerConnection =
-            createPeerConnection();
-
-    }
-
-    pendingIceCandidates = [];
-
-    // Notificar o viewer de que o compartilhamento foi encerrado
-    socket.emit("screen-share-stopped");
-
-
-    stopSharingButton.classList.add(
-        "hidden"
-    );
-
-
-    shareScreenButton.classList.remove(
-        "hidden"
-    );
-
-
-    hostStatus.textContent =
-        "🟡 Compartilhamento encerrado.";
-
-}
-
-// ========================================
-// SAIR DA SALA E VOLTAR AO MENU
-// ========================================
 
 function resetRoomInterface(message = "") {
+    console.log("Limpando interface e saindo da sala...");
 
-    console.log("Limpando sessão da sala...");
-
-    stopViewerDiagnostics();
-    stopHostStats();
-
-    // Encerrar captura de tela e áudio
-    if (localStream) {
-
-        localStream
-            .getTracks()
-            .forEach(track => track.stop());
-
-        localStream = null;
-
+    if (isBroadcasting) {
+        stopBroadcasting();
     }
+    stopReceivingStream();
 
-    // Encerrar conexão WebRTC
-    if (peerConnection) {
-
-        peerConnection.close();
-
-        peerConnection = createPeerConnection();
-
-    }
-
-    // Encerrar atualização das estatísticas
-    if (statsInterval) {
-
-        clearInterval(statsInterval);
-
-        statsInterval = null;
-
-    }
-
-    // Limpar player
-    remoteVideo.pause();
-    remoteVideo.srcObject = null;
-    remoteVideo.load();
-
-    videoPlaceholder.classList.remove("hidden");
-
-    // Limpar estatísticas
-    resolution.textContent = "--";
-    fps.textContent = "--";
-    bitrate.textContent = "--";
-
-    previousBytesReceived = 0;
-    previousTimestamp = 0;
-    pendingIceCandidates = [];
-
-    // Limpar informações da sala
     currentRoomCode = null;
-    isHost = false;
+    currentStreamerId = null;
+    isBroadcasting = false;
+    roomParticipants = [];
 
     roomCodeDisplay.textContent = "--------";
     roomCodeInput.value = "";
+    chatMessages.innerHTML = "";
+    chatInput.value = "";
 
-    // Restaurar botões
-    shareScreenButton.classList.add("hidden");
-    stopSharingButton.classList.add("hidden");
-    leaveRoomButton.classList.add("hidden");
-
-    // Restaurar mensagens
-    hostStatus.textContent = "🟡 Aguardando seu amigo...";
-    connectionStatus.textContent = "🔴 Desconectado";
-
-    // Esconder as telas da sala
-    if (hostLayout) {
-        hostLayout.classList.add("hidden");
-    }
-    hostSection.classList.add("hidden");
-    viewerSection.classList.add("hidden");
-
-    // Limpar e esconder o chat da sala
-    if (leaveRoomButton && chatSection && chatSection.parentNode !== leaveRoomButton.parentNode) {
-        leaveRoomButton.parentNode.insertBefore(chatSection, leaveRoomButton);
-    }
-    if (chatSection) {
-        chatSection.classList.add("hidden");
-    }
-    if (chatMessages) {
-        chatMessages.innerHTML = "";
-    }
-    if (chatInput) {
-        chatInput.value = "";
-    }
-
-    // Mostrar menu inicial
+    roomSection.classList.add("hidden");
     createSection.classList.remove("hidden");
     joinSection.classList.remove("hidden");
+    if (profileSection) profileSection.classList.remove("hidden");
+    if (appContainer) appContainer.classList.remove("in-room");
 
-    if (profileSection) {
-        profileSection.classList.remove("hidden");
-    }
-
-    // Limpar status
     status.textContent = message;
 
-    // Sair da tela cheia, caso esteja ativa
     if (document.fullscreenElement === videoContainer) {
-
-        document.exitFullscreen().catch(error => {
-            console.error("Erro ao sair da tela cheia:", error);
-        });
-
+        document.exitFullscreen().catch(() => {});
     }
-
 }
 
-// ========================================
-// TRANSMISSÃO ENCERRADA PELO HOST
-// ========================================
-
-socket.on("screen-share-stopped", () => {
-
-    stopViewerDiagnostics();
-    console.log("O host encerrou a transmissão.");
-
-    // Limpar player e voltar placeholder
-    remoteVideo.pause();
-    remoteVideo.srcObject = null;
-    remoteVideo.load();
-    videoPlaceholder.classList.remove("hidden");
-
-    // Limpar estatísticas e contadores
-    if (statsInterval) {
-        clearInterval(statsInterval);
-        statsInterval = null;
-    }
-
-    resolution.textContent = "--";
-    fps.textContent = "--";
-    bitrate.textContent = "--";
-
-    previousBytesReceived = 0;
-    previousTimestamp = 0;
-    pendingIceCandidates = [];
-
-    // Recriar peer connection para que esteja limpa para o próximo compartilhamento
-    if (peerConnection) {
-        peerConnection.close();
-        peerConnection = createPeerConnection();
-    }
-
-    connectionStatus.textContent = "🟡 Aguardando transmissão...";
-
-});
-
-
-// ========================================
-// RECEBER OFERTA
-// ========================================
-
-socket.on("webrtc-offer", async (offer) => {
-
-    console.log("Oferta WebRTC recebida.");
-
-    if (!peerConnection) {
-        peerConnection = createPeerConnection();
-    }
-
-    try {
-
-        await peerConnection.setRemoteDescription(
-            new RTCSessionDescription(offer)
-        );
-
-        // Processar candidatos ICE que chegaram antes da descrição remota
-        await processPendingIceCandidates();
-
-        const answer =
-            await peerConnection.createAnswer();
-
-        await peerConnection.setLocalDescription(
-            answer
-        );
-
-        socket.emit(
-            "webrtc-answer",
-            answer
-        );
-
-    } catch (error) {
-
-        console.error("Erro ao processar oferta WebRTC:", error);
-
-    }
-
-});
-
-
-// ========================================
-// RECEBER ANSWER
-// ========================================
-
-socket.on("webrtc-answer", async (answer) => {
-
-    console.log("Resposta WebRTC recebida.");
-
-    try {
-
-        await peerConnection.setRemoteDescription(
-            new RTCSessionDescription(answer)
-        );
-
-        // Processar candidatos ICE que chegaram antes da resposta remota
-        await processPendingIceCandidates();
-
-    } catch (error) {
-
-        console.error("Erro ao aplicar resposta WebRTC:", error);
-
-    }
-
-});
-
-
-// ========================================
-// RECEBER ICE CANDIDATE
-// ========================================
-
-socket.on("webrtc-candidate", async (candidate) => {
-
-    if (!peerConnection) {
-        peerConnection = createPeerConnection();
-    }
-
-    // Se a descrição remota ainda não foi configurada, enfileira o candidato
-    if (!peerConnection.remoteDescription || !peerConnection.remoteDescription.type) {
-        console.log("ICE candidate recebido antes do remoteDescription. Enfileirando...");
-        pendingIceCandidates.push(candidate);
-        return;
-    }
-
-    try {
-
-        await peerConnection.addIceCandidate(
-            new RTCIceCandidate(candidate)
-        );
-
-    } catch (error) {
-
-        console.error(
-            "Erro ao adicionar ICE candidate:",
-            error
-        );
-
-    }
-
-});
-
-
-// ========================================
-// ERRO
-// ========================================
-
-socket.on("room-error", (message) => {
-
-    status.textContent = message;
-
-});
-
-
-// ========================================
-// VIEWER SAIU
-// ========================================
-
-socket.on("viewer-left", () => {
-
-    // Se o host estava transmitindo, encerra a transmissão e recria a
-    // conexão para que o próximo viewer comece com uma conexão limpa.
-    if (localStream) {
-
-        stopScreenSharing();
-
-    }
-
-    shareScreenButton.classList.add("hidden");
-
-    if (chatParticipants) {
-        chatParticipants.textContent = "Aguardando amigo...";
-    }
-
-    hostStatus.textContent =
-        "🟡 Seu amigo saiu da sala.";
-
-});
-
-
-// ========================================
-// CONEXÃO
-// ========================================
-
+// Conexão Socket.IO
 socket.on("connect", () => {
-
-    if (!peerConnection) {
-
-        peerConnection =
-            createPeerConnection();
-
-    }
-
-
-    console.log("Conectado ao servidor!");
-
+    myId = socket.id;
+    console.log(`Conectado ao servidor! ID: ${myId}`);
 });
 
-
-// ========================================
-// ESTATÍSTICAS DA TRANSMISSÃO
-// ========================================
-
-async function updateStats() {
-
-    const stats =
-        await peerConnection.getStats();
-
-
-    let videoStats = null;
-
-
-    stats.forEach(report => {
-
-        if (
-            report.type === "inbound-rtp" &&
-            report.kind === "video"
-        ) {
-
-            videoStats = report;
-
-        }
-
-    });
-
-
-    if (!videoStats) {
-
-        return;
-
-    }
-
-
-    const currentFPS =
-        videoStats.framesPerSecond || 0;
-
-
-    const width =
-        videoStats.frameWidth || 0;
-
-
-    const height =
-        videoStats.frameHeight || 0;
-
-
-    const bytesReceived =
-        videoStats.bytesReceived || 0;
-
-
-    const timestamp =
-        videoStats.timestamp;
-
-
-    let currentBitrate = 0;
-
-
-    if (previousTimestamp !== 0) {
-
-        const bytesDiff =
-            bytesReceived -
-            previousBytesReceived;
-
-
-        const timeDiff =
-            timestamp -
-            previousTimestamp;
-
-
-        if (timeDiff > 0) {
-
-            currentBitrate =
-                (bytesDiff * 8) /
-                (timeDiff / 1000);
-
-        }
-
-    }
-
-
-    previousBytesReceived =
-        bytesReceived;
-
-
-    previousTimestamp =
-        timestamp;
-
-
-    resolution.textContent =
-        width && height
-            ? `${width} × ${height}`
-            : "--";
-
-
-    fps.textContent =
-        currentFPS
-            ? Math.round(currentFPS)
-            : "--";
-
-
-    bitrate.textContent =
-        currentBitrate
-            ? `${(
-                currentBitrate / 1000000
-            ).toFixed(2)} Mbps`
-            : "--";
-
-}
+socket.on("disconnect", () => {
+    console.log("Desconectado do servidor.");
+});
