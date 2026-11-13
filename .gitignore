@@ -1,0 +1,16 @@
+# Dependências Node.js
+node_modules/
+desktop/node_modules/
+
+# Builds e empacotamento desktop
+desktop/dist/
+dist/
+
+# Logs e arquivos de sistema
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+
+# Variáveis de ambiente
+.env

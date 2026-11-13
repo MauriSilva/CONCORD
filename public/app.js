@@ -59,20 +59,22 @@ const usernameSavedBadge = document.getElementById("usernameSavedBadge");
 // ===============================
 const frases = [
     "deixa eu compartilhar minha tela Discord AAA",
-    "isso aqui ta funcionando?...",
+    //"isso aqui ta funcionando?...",
     "como você encontrou esse site?",
-    "devolve meu compartilhamento de tela Discord!",
-    "mano eu to ouvindo minha voz...",
-    "eu nem sei o que eu to fazendo",
+    //"devolve meu compartilhamento de tela Discord!",
+    //"mano eu to ouvindo minha voz...",
+    //"eu nem sei o que eu to fazendo",
     "Discord caiu? problema de vocês.",
-    "funciona na minha máquina.",
-    "não encosta que tá funcionando.",
+    "Tão plantando na B mano!",
+    "Cuidado tem AWP",
     "1080p de pura gambiarra.",
     "feito com ódio e JavaScript.",
-    "se fechar a aba perde tudo.",
-    "o importante é que abriu.",
-    "WebRTC, minha última esperança.",
-    "sem anúncios, sem Nitro, sem vergonha."
+    //"se fechar a aba perde tudo.",
+    //"o importante é que abriu.",
+    //"WebRTC, minha última esperança.",
+    "sem anúncios, sem Nitro, sem vergonha.",
+    "CADÊ O TOKEN CADÊ O TOKEN CADÊ O TOKEN",
+    "Só mais um báu...é nele que vai vir o token"
 ];
 
 function mostrarFraseAoCarregar() {
@@ -543,15 +545,59 @@ async function createPeerConnectionForViewer(viewerId) {
 // ========================================
 // INICIAR E PARAR TRANSMISSÃO (BROADCASTER)
 // ========================================
+
+async function startBroadcastingWithStream(stream) {
+    localStream = stream;
+
+    const videoTrack = localStream.getVideoTracks()[0];
+    if (!videoTrack) {
+        throw new Error("Nenhuma faixa de vídeo encontrada.");
+    }
+
+    const mode = getSelectedMode();
+    videoTrack.contentHint = mode.contentHint;
+
+    try {
+        await applyStreamQuality(videoTrack);
+    } catch (err) {
+        console.warn("Aviso ao aplicar qualidade:", err);
+    }
+
+    videoTrack.addEventListener("ended", () => {
+        stopBroadcasting();
+    });
+
+    isBroadcasting = true;
+    currentStreamerId = myId;
+
+    // Notifica o servidor para atualizar o estado da sala
+    socket.emit("start-stream");
+
+    // Cria conexões para todos os outros participantes da sala
+    const viewers = roomParticipants.filter(p => p.id !== myId);
+    for (const viewer of viewers) {
+        await createPeerConnectionForViewer(viewer.id);
+    }
+
+    updateRoomUI();
+}
+
 startStreamBtn.addEventListener("click", async () => {
     if (currentStreamerId && currentStreamerId !== myId) {
         alert("Já existe uma transmissão ativa nesta sala.");
         return;
     }
 
+    // Se estiver rodando no Concord Desktop, abre o seletor nativo estilo Discord
+    if (window.concordDesktop && window.concordDesktop.isDesktop) {
+        openSourcePicker();
+        return;
+    }
+
+    // Caso contrário (Web tradicional no navegador)
     try {
         const quality = getSelectedQuality();
-        localStream = await navigator.mediaDevices.getDisplayMedia({
+        const stream = await navigator.mediaDevices.getDisplayMedia({
             video: {
                 width: { ideal: quality.width },
                 height: { ideal: quality.height },
@@ -564,42 +610,331 @@ startStreamBtn.addEventListener("click", async () => {
             }
         });
 
-        const videoTrack = localStream.getVideoTracks()[0];
-        if (!videoTrack) {
-            throw new Error("Nenhuma faixa de vídeo encontrada.");
-        }
-
-        const mode = getSelectedMode();
-        videoTrack.contentHint = mode.contentHint;
-
-        try {
-            await applyStreamQuality(videoTrack);
-        } catch (err) {
-            console.warn("Aviso ao aplicar qualidade:", err);
-        }
-
-        videoTrack.addEventListener("ended", () => {
-            stopBroadcasting();
-        });
-
-        isBroadcasting = true;
-        currentStreamerId = myId;
-
-        // Notifica o servidor para atualizar o estado da sala
-        socket.emit("start-stream");
-
-        // Cria conexões para todos os outros participantes da sala
-        const viewers = roomParticipants.filter(p => p.id !== myId);
-        for (const viewer of viewers) {
-            await createPeerConnectionForViewer(viewer.id);
-        }
-
-        updateRoomUI();
+        await startBroadcastingWithStream(stream);
     } catch (error) {
-        console.error("Erro ao iniciar transmissão:", error);
+        console.error("Erro ao iniciar transmissão web:", error);
         stopBroadcasting();
     }
 });
+
+// ========================================
+// SELETOR DE TELAS E JANELAS (CONCORD DESKTOP)
+// ========================================
+const sourcePickerModal = document.getElementById("sourcePickerModal");
+const closePickerBtn = document.getElementById("closePickerBtn");
+const cancelPickerBtn = document.getElementById("cancelPickerBtn");
+const confirmPickerBtn = document.getElementById("confirmPickerBtn");
+const tabWindows = document.getElementById("tabWindows");
+const tabScreens = document.getElementById("tabScreens");
+const sourcesLoading = document.getElementById("sourcesLoading");
+const sourcesGrid = document.getElementById("sourcesGrid");
+const isolatedAudioCheckbox = document.getElementById("isolatedAudioCheckbox");
+
+let desktopSources = [];
+let currentPickerTab = "window"; // "window" ou "screen"
+let selectedSource = null;
+
+function closeSourcePicker() {
+    if (sourcePickerModal) {
+        sourcePickerModal.classList.add("hidden");
+    }
+    selectedSource = null;
+    if (confirmPickerBtn) {
+        confirmPickerBtn.disabled = true;
+    }
+}
+
+if (closePickerBtn) closePickerBtn.addEventListener("click", closeSourcePicker);
+if (cancelPickerBtn) cancelPickerBtn.addEventListener("click", closeSourcePicker);
+
+if (tabWindows) {
+    tabWindows.addEventListener("click", () => {
+        currentPickerTab = "window";
+        tabWindows.classList.add("active");
+        tabScreens.classList.remove("active");
+        renderSourcesGrid();
+    });
+}
+
+if (tabScreens) {
+    tabScreens.addEventListener("click", () => {
+        currentPickerTab = "screen";
+        tabScreens.classList.add("active");
+        tabWindows.classList.remove("active");
+        renderSourcesGrid();
+    });
+}
+
+function renderSourcesGrid() {
+    if (!sourcesGrid) return;
+    sourcesGrid.innerHTML = "";
+
+    const filtered = desktopSources.filter(s =>
+        currentPickerTab === "screen" ? s.isScreen : !s.isScreen
+    );
+
+    if (filtered.length === 0) {
+        sourcesGrid.innerHTML = `<div class="sources-loading">Nenhuma ${currentPickerTab === "screen" ? "tela" : "janela"} encontrada.</div>`;
+        return;
+    }
+
+    filtered.forEach(source => {
+        const card = document.createElement("div");
+        card.className = "source-card" + (selectedSource?.id === source.id ? " selected" : "");
+
+        const thumbWrap = document.createElement("div");
+        thumbWrap.className = "source-thumb-wrap";
+
+        if (source.thumbnail) {
+            const img = document.createElement("img");
+            img.className = "source-thumb";
+            img.src = source.thumbnail;
+            img.alt = source.name;
+            thumbWrap.appendChild(img);
+        } else {
+            // Placeholder para janelas fullscreen nativas sem thumbnail
+            const placeholder = document.createElement("div");
+            placeholder.className = "source-thumb-placeholder";
+            placeholder.innerHTML = "🎮";
+            thumbWrap.appendChild(placeholder);
+        }
+
+        // Badge de fullscreen
+        if (source.fullscreen) {
+            const badge = document.createElement("span");
+            badge.className = "source-fullscreen-badge";
+            badge.textContent = "TELA CHEIA";
+            badge.title = "Este aplicativo está em tela cheia";
+            thumbWrap.appendChild(badge);
+        }
+
+        const infoDiv = document.createElement("div");
+        infoDiv.className = "source-info";
+
+        if (source.appIcon) {
+            const iconImg = document.createElement("img");
+            iconImg.className = "source-app-icon";
+            iconImg.src = source.appIcon;
+            infoDiv.appendChild(iconImg);
+        }
+
+        const titleSpan = document.createElement("span");
+        titleSpan.className = "source-title";
+        titleSpan.textContent = source.name || "Sem título";
+        titleSpan.title = source.name;
+        infoDiv.appendChild(titleSpan);
+
+        card.appendChild(thumbWrap);
+        card.appendChild(infoDiv);
+
+        card.addEventListener("click", () => {
+            selectedSource = source;
+            document.querySelectorAll(".source-card").forEach(c => c.classList.remove("selected"));
+            card.classList.add("selected");
+            if (confirmPickerBtn) {
+                confirmPickerBtn.disabled = false;
+            }
+        });
+
+        sourcesGrid.appendChild(card);
+    });
+}
+
+async function openSourcePicker() {
+    if (!sourcePickerModal || !window.concordDesktop) return;
+
+    sourcePickerModal.classList.remove("hidden");
+    sourcesLoading.classList.remove("hidden");
+    sourcesGrid.innerHTML = "";
+    if (confirmPickerBtn) confirmPickerBtn.disabled = true;
+    selectedSource = null;
+
+    try {
+        desktopSources = await window.concordDesktop.getCaptureSources();
+        sourcesLoading.classList.add("hidden");
+        renderSourcesGrid();
+    } catch (err) {
+        console.error("Erro ao carregar fontes de captura:", err);
+        sourcesLoading.innerHTML = "<span>Erro ao listar janelas.</span>";
+    }
+}
+
+// ========================================
+// GERENCIADOR DE ÁUDIO NATIVO (ANTI-ECO)
+// ========================================
+let isolatedAudioContext = null;
+let isolatedAudioDestination = null;
+let isolatedScriptNode = null;
+let pcmLeftQueue = [];
+let pcmRightQueue = [];
+const MAX_QUEUE_SAMPLES = 48000 * 0.25; // Limita atraso máximo em 250ms
+
+function initIsolatedAudioPipeline() {
+    stopIsolatedAudioPipeline();
+
+    // Cria o contexto de áudio a 48 kHz (padrão de estúdio e do WebRTC Opus)
+    isolatedAudioContext = new (window.AudioContext || window.webkitAudioContext)({
+        sampleRate: 48000
+    });
+
+    isolatedAudioDestination = isolatedAudioContext.createMediaStreamDestination();
+    pcmLeftQueue = [];
+    pcmRightQueue = [];
+
+    // ScriptProcessor para alimentar os buffers de forma contínua
+    const bufferSize = 4096;
+    isolatedScriptNode = isolatedAudioContext.createScriptProcessor(bufferSize, 0, 2);
+
+    isolatedScriptNode.onaudioprocess = (audioProcessingEvent) => {
+        const outputBuffer = audioProcessingEvent.outputBuffer;
+        const leftChannel = outputBuffer.getChannelData(0);
+        const rightChannel = outputBuffer.getChannelData(1);
+
+        for (let i = 0; i < bufferSize; i++) {
+            leftChannel[i] = pcmLeftQueue.shift() || 0.0;
+            rightChannel[i] = pcmRightQueue.shift() || 0.0;
+        }
+
+        // Se a fila acumulou mais de 250ms de amostras, descarta o excesso para não gerar atraso
+        if (pcmLeftQueue.length > MAX_QUEUE_SAMPLES) {
+            pcmLeftQueue.splice(0, pcmLeftQueue.length - MAX_QUEUE_SAMPLES);
+            pcmRightQueue.splice(0, pcmRightQueue.length - MAX_QUEUE_SAMPLES);
+        }
+    };
+
+    isolatedScriptNode.connect(isolatedAudioDestination);
+
+    return isolatedAudioDestination.stream.getAudioTracks()[0];
+}
+
+function stopIsolatedAudioPipeline() {
+    if (window.concordDesktop && window.concordDesktop.stopAudioCapture) {
+        window.concordDesktop.stopAudioCapture().catch(() => {});
+    }
+
+    if (isolatedScriptNode) {
+        try { isolatedScriptNode.disconnect(); } catch (e) {}
+        isolatedScriptNode = null;
+    }
+
+    if (isolatedAudioContext) {
+        try { isolatedAudioContext.close(); } catch (e) {}
+        isolatedAudioContext = null;
+    }
+
+    isolatedAudioDestination = null;
+    pcmLeftQueue = [];
+    pcmRightQueue = [];
+}
+
+// Ouve os dados PCM emitidos pelo processo principal do Electron
+if (window.concordDesktop && window.concordDesktop.onAudioData) {
+    window.concordDesktop.onAudioData((chunk) => {
+        if (!isolatedAudioContext || isolatedAudioContext.state === "closed") return;
+
+        if (isolatedAudioContext.state === "suspended") {
+            isolatedAudioContext.resume().catch(() => {});
+        }
+
+        // Converte o Buffer de 16-bit PCM little-endian para Float32 (-1.0 a 1.0)
+        const int16Array = new Int16Array(chunk.buffer, chunk.byteOffset, chunk.byteLength / 2);
+        for (let i = 0; i < int16Array.length; i += 2) {
+            pcmLeftQueue.push(int16Array[i] / 32768.0);
+            pcmRightQueue.push(int16Array[i + 1] / 32768.0);
+        }
+    });
+}
+
+if (confirmPickerBtn) {
+    confirmPickerBtn.addEventListener("click", async () => {
+        if (!selectedSource) return;
+
+        const sourceToCapture = selectedSource;
+        const wantAudio = isolatedAudioCheckbox ? isolatedAudioCheckbox.checked : true;
+        const isNativeFs = sourceToCapture.isNativeFullscreen || (sourceToCapture.id && sourceToCapture.id.startsWith("native-fullscreen:"));
+        closeSourcePicker();
+
+        try {
+            const quality = getSelectedQuality();
+
+            // Salva a seleção no processo principal do Electron
+            if (window.concordDesktop.selectSource) {
+                await window.concordDesktop.selectSource(sourceToCapture.id);
+            }
+
+            let stream;
+
+            if (isNativeFs) {
+                // Janela fullscreen exclusiva: getUserMedia com chromeMediaSource "screen"
+                // O setDisplayMediaRequestHandler no main.js já detecta o native-fullscreen:
+                // e retorna a fonte de tela correta
+                console.log(`[Capture] Capturando janela fullscreen nativa: ${sourceToCapture.name}`);
+                stream = await navigator.mediaDevices.getUserMedia({
+                    audio: false,
+                    video: {
+                        mandatory: {
+                            chromeMediaSource: "screen",
+                            minWidth: quality.width,
+                            maxWidth: quality.width,
+                            minHeight: quality.height,
+                            maxHeight: quality.height,
+                            maxFrameRate: TARGET_FRAME_RATE
+                        }
+                    }
+                });
+            } else {
+                // Captura normal via getUserMedia com o chromeMediaSourceId
+                stream = await navigator.mediaDevices.getUserMedia({
+                    audio: false,
+                    video: {
+                        mandatory: {
+                            chromeMediaSource: "desktop",
+                            chromeMediaSourceId: sourceToCapture.id,
+                            minWidth: quality.width,
+                            maxWidth: quality.width,
+                            minHeight: quality.height,
+                            maxHeight: quality.height,
+                            maxFrameRate: TARGET_FRAME_RATE
+                        }
+                    }
+                });
+            }
+
+            // Se o usuário marcou para capturar áudio anti-eco:
+            if (wantAudio) {
+                try {
+                    const pid = isNativeFs
+                        ? (sourceToCapture.nativePid || parseInt(sourceToCapture.id.split(":")[2], 10) || 0)
+                        : await window.concordDesktop.getPidForSource(sourceToCapture.id);
+                    console.log(`[AudioCapture] Janela ${sourceToCapture.name} associada ao PID: ${pid}`);
+
+                    // Inicia o pipeline de áudio no Web Audio API
+                    const audioTrack = initIsolatedAudioPipeline();
+
+                    // Inicia a captura nativa no Windows
+                    await window.concordDesktop.startAudioCapture({
+                        pid,
+                        isScreen: sourceToCapture.isScreen || isNativeFs
+                    });
+
+                    // Adiciona a faixa de áudio capturada ao stream de transmissão
+                    if (audioTrack) {
+                        stream.addTrack(audioTrack);
+                        console.log("Faixa de áudio isolada adicionada com sucesso à transmissão!");
+                    }
+                } catch (audioErr) {
+                    console.warn("Aviso ao inicializar áudio isolado:", audioErr);
+                }
+            }
+
+            await startBroadcastingWithStream(stream);
+        } catch (err) {
+            console.error("Erro ao capturar fonte selecionada no desktop:", err);
+            alert("Não foi possível capturar a janela selecionada: " + err.message);
+            stopBroadcasting();
+        }
+    });
+}
 
 stopStreamBtn.addEventListener("click", () => {
     stopBroadcasting();
@@ -610,6 +945,9 @@ function stopBroadcasting() {
 
     console.log("Encerrando transmissão...");
     isBroadcasting = false;
+
+    // Encerra áudio nativo se ativo
+    stopIsolatedAudioPipeline();
 
     if (localStream) {
         localStream.getTracks().forEach(t => t.stop());

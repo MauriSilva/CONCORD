@@ -218,6 +218,48 @@
         <!-- STATUS GERAL -->
         <p id="status"></p>
 
+        <!-- MODAL DE SELEÇÃO DE JANELA / TELA (CONCORD DESKTOP) -->
+        <div id="sourcePickerModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+            <div class="modal-card">
+                <div class="modal-header">
+                    <h3 id="modalTitle">Transmitir tela</h3>
+                    <button id="closePickerBtn" class="modal-close-btn" type="button" aria-label="Fechar">✕</button>
+                </div>
+
+                <div class="modal-tabs">
+                    <button id="tabWindows" class="modal-tab active" type="button">
+                        📱 Janelas de Aplicativos
+                    </button>
+                    <button id="tabScreens" class="modal-tab" type="button">
+                        🖥️ Telas Inteiras
+                    </button>
+                </div>
+
+                <div id="sourcesLoading" class="sources-loading hidden">
+                    <span>Procurando janelas disponíveis...</span>
+                </div>
+
+                <div id="sourcesGrid" class="sources-grid">
+                    <!-- Cards de janelas/telas injetados dinamicamente via JS -->
+                </div>
+
+                <div class="modal-options">
+                    <label class="modal-checkbox-label">
+                        <input type="checkbox" id="isolatedAudioCheckbox" checked>
+                        <span>🎙️ Capturar áudio exclusivo deste aplicativo (Anti-Eco)</span>
+                    </label>
+                    <small class="modal-options-help">
+                        Isola o som do jogo para que seus amigos não ouçam suas vozes duplicadas no fone de ouvido.
+                    </small>
+                </div>
+
+                <div class="modal-actions">
+                    <button id="cancelPickerBtn" class="secondary-button" type="button">Cancelar</button>
+                    <button id="confirmPickerBtn" class="stream-btn" type="button" disabled>Transmitir ao vivo</button>
+                </div>
+            </div>
+        </div>
+
     </main>
 
     <script src="https://cdn.socket.io/4.8.3/socket.io.min.js"></script>

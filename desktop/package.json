@@ -1,0 +1,23 @@
+{
+  "name": "concord-desktop",
+  "version": "1.0.0",
+  "description": "Cliente Desktop do Concord",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "keywords": [
+    "concord",
+    "electron",
+    "webrtc"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "electron": "^33.2.1",
+    "electron-builder": "^26.18.0"
+  },
+  "dependencies": {
+    "loopback-capture": "^4.0.0"
+  }
+}
