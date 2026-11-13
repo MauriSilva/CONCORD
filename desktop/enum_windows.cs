@@ -6,6 +6,23 @@ using System.Text;
 
 class Program
 {
+
+    [DllImport("user32.dll")]
+static extern bool IsWindowVisible(IntPtr hWnd);
+
+[DllImport("dwmapi.dll")]
+static extern int DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, out int pvAttribute, int cbAttribute);
+
+const int DWMWA_CLOAKED = 14;
+
+static bool IsRealVisibleWindow(IntPtr hWnd)
+{
+    if (!IsWindowVisible(hWnd)) return false;
+    int cloaked;
+    DwmGetWindowAttribute(hWnd, DWMWA_CLOAKED, out cloaked, sizeof(int));
+    return cloaked == 0;
+}
+
     [DllImport("user32.dll")]
     static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
 
@@ -57,6 +74,7 @@ class Program
                 string title = p.MainWindowTitle;
                 if (string.IsNullOrEmpty(title)) continue;
                 if (title == "Program Manager") continue;
+                if (!IsRealVisibleWindow(p.MainWindowHandle)) continue;
 
                 bool fs = IsFullscreen(p.MainWindowHandle);
                 string esc = title.Replace("\\", "\\\\").Replace("\"", "\\\"")

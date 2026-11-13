@@ -2,6 +2,10 @@ const { app, BrowserWindow, desktopCapturer, session, ipcMain } = require("elect
 const path = require("path");
 const { execFile } = require("child_process");
 const { LoopbackCapture } = require("loopback-capture");
+const resourcesBase = app.isPackaged ? process.resourcesPath : __dirname;
+const publicDir = app.isPackaged
+    ? path.join(process.resourcesPath, "public")
+    : path.join(__dirname, "../public");
 
 let mainWindow = null;
 let currentSelectedSourceId = null;
@@ -13,7 +17,7 @@ function getPidFromSourceId(sourceId) {
             return resolve(0);
         }
 
-        const helperPath = path.join(__dirname, "get_pid.exe");
+        const helperPath = path.join(resourcesBase, "get_pid.exe");
         execFile(helperPath, [sourceId], (err, stdout) => {
             if (err) {
                 console.warn("Erro ao obter PID da janela:", err);
@@ -56,7 +60,11 @@ function createWindow() {
     mainWindow.setMenuBarVisibility(false);
 
     // Carrega a interface web local do Concord
-    mainWindow.loadFile(path.join(__dirname, "../public/index.html"));
+    mainWindow.loadFile(path.join(publicDir, "index.html"));
+
+    mainWindow.webContents.on("preload-error", (event, preloadPath, error) => {
+    console.error("PRELOAD ERRO:", preloadPath, error);
+});
 
     // Interceptador de getDisplayMedia caso seja invocado
     session.defaultSession.setDisplayMediaRequestHandler(async (request, callback) => {
@@ -123,7 +131,7 @@ app.on("window-all-closed", () => {
 // Usa o helper nativo para descobrir janelas (inclusive fullscreen exclusivo)
 function getNativeWindows() {
     return new Promise((resolve) => {
-        const helperPath = path.join(__dirname, "enum_windows.exe");
+        const helperPath = path.join(resourcesBase, "enum_windows.exe");
         execFile(helperPath, [], { timeout: 5000 }, (err, stdout) => {
             if (err) {
                 console.warn("[EnumWindows] Falha ao enumerar janelas nativas:", err.message);
@@ -168,8 +176,22 @@ ipcMain.handle("get-capture-sources", async () => {
             nativeByHwnd.set(String(nw.hwnd), nw);
         }
 
+        const IGNORED_WINDOW_NAMES = [
+    "Experiência de entrada do Windows",
+    "Experi´┐¢ncia de Entrada do Windows",
+    "Windows Input Experience",
+    "Filmes e TV",
+    "Movies & TV",
+    "Program Manager"
+];
+
+const filteredSources = sources.filter(s => {
+    if (s.id.startsWith("screen:")) return true;
+    return !IGNORED_WINDOW_NAMES.includes(s.name);
+});
+
         // Monta a lista base com as fontes do desktopCapturer
-        const result = sources.map(s => {
+        const result = filteredSources.map(s => {
             const isScreen = s.id.startsWith("screen:");
             const entry = {
                 id: s.id,
