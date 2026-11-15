@@ -78,6 +78,7 @@ function setupAutoUpdater() {
 
 function createWindow() {
     mainWindow = new BrowserWindow({
+        icon: path.join(__dirname, 'assets', 'Concord.ico'),
         width: 1280,
         height: 850,
         minWidth: 900,
